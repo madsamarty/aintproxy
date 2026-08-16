@@ -1,0 +1,20 @@
+[Unit]
+Description=IP Flip HTTP service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust the path if `pip install` placed the entry point elsewhere
+# (`which ipflip`).
+ExecStart=/usr/local/bin/ipflip serve
+# Expect your MODEM_PASS and other settings here:
+EnvironmentFile=/etc/ipflip/.env
+Restart=on-failure
+RestartSec=5
+# The rotation commands (nmcli/ip/sysctl) require root. If you run as an
+# unprivileged user instead, give it a passwordless sudoers rule.
+User=root
+
+[Install]
+WantedBy=multi-user.target
