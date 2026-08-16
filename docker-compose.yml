@@ -1,0 +1,19 @@
+services:
+  ipflip:
+    build: .
+    container_name: ipflip
+    # Host networking is required so the container can:
+    #   1. Reach the Huawei modem on the LAN (192.168.8.1)
+    #   2. Reach the local proxy (127.0.0.1:3128) on the host
+    #   3. Run nmcli/ip/sysctl against the host's network stack
+    network_mode: host
+    privileged: true
+    env_file: .env
+    volumes:
+      # Mount D-Bus so nmcli can talk to the host's NetworkManager
+      - /run/dbus/system_bus_socket:/host/run/dbus/system_bus_socket:ro
+      # Mount NetworkManager config from the host
+      - /etc/NetworkManager:/etc/NetworkManager:ro
+    environment:
+      - USE_SUDO=false
+    restart: unless-stopped

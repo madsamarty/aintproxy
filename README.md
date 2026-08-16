@@ -66,7 +66,7 @@ cp .env.example .env        # then edit .env — MODEM_PASS is required
 
 All settings live in a `.env` file next to the working directory (see
 [`.env.example`](.env.example)). Real environment variables always win over the
-file — handy for systemd `EnvironmentFile` use.
+file.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -85,7 +85,7 @@ file — handy for systemd `EnvironmentFile` use.
 | `CONNECT_RETRY_SECONDS` | `3` | Seconds between IP polls. |
 | `ROTATION_HOST` / `ROTATION_PORT` | `0.0.0.0` / `5000` | HTTP service bind address/port. |
 | `AUTH_TOKEN` | *(empty)* | If set, `/rotate` requires the `X-Auth-Token` header. |
-| `USE_SUDO` | `true` | Set `false` only when running as root (e.g. systemd). |
+| `USE_SUDO` | `true` | Set `false` when running as root (Docker containers run as root by default). |
 
 ## Usage
 
@@ -122,30 +122,25 @@ curl -X POST -H "X-Auth-Token: your-token" http://127.0.0.1:5000/rotate
 Concurrent `/rotate` calls are serialized with a lock so two requests can't
 fight over the modem.
 
-## Run as a service (systemd)
-
-Copy the units and install your config:
+## Run with Docker
 
 ```bash
-sudo mkdir -p /etc/ipflip
-sudo cp .env /etc/ipflip/.env
+cp .env.example .env    # edit — MODEM_PASS is required
 
-sudo cp systemd/ipflip.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now ipflip
+docker compose up -d --build
+
+# Verify it is up
+curl http://127.0.0.1:5000/health
+
+# Trigger a flip
+curl -X POST http://127.0.0.1:5000/rotate
 ```
 
-Optional: flip on a schedule instead of via HTTP.
+The container runs with `--network host` and `privileged` so it can reach the
+modem on your LAN, the local proxy on `127.0.0.1:3128`, and run `nmcli`/`ip`/`sysctl`
+against the host's network stack.
 
-```bash
-sudo cp systemd/ipflip-rotate.service systemd/ipflip-rotate.timer /etc/systemd/system/
-sudo systemctl enable --now ipflip-rotate.timer
-```
-
-> The units run as `root` because `nmcli`, `ip` and `sysctl` need privileges.
-> If you prefer an unprivileged user, drop `User=root` and add a passwordless
-> sudoers rule for those binaries. Adjust `ExecStart` if `pip` installed the
-> binary somewhere other than `/usr/local/bin` (`which ipflip`).
+To stop: `docker compose down`
 
 ## Security notes
 

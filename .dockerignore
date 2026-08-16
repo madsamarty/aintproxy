@@ -1,0 +1,12 @@
+.git
+.venv
+.pytest_cache
+__pycache__
+*.egg-info
+.env
+.env.example
+LICENSE
+README.md
+tests/
+.github/
+systemd/
