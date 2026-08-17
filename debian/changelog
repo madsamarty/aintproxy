@@ -1,7 +1,7 @@
 aintproxy (0.1.0-1) unstable; urgency=medium
 
   * Initial release.
-  * CLI: rotate, serve, reboot, toggle subcommands.
+  * CLI: rotate, hard-rotate, serve, info, devices, drivers subcommands.
   * HTTP API: POST /rotate, GET /health.
   * YAML configuration at /etc/aintproxy/config.yaml.
   * Systemd service with hardened defaults.

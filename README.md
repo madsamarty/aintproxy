@@ -1,10 +1,10 @@
 # AintProxy
 
-Flip your public IP address by rebooting or toggling a 4G/5G modem.
+Flip your public IP address by rotating the IP on a 4G/5G modem.
 
 Most consumer 4G/5G connections sit behind ISP **CGNAT**, so your public IP is
 only stable for as long as the modem holds its PPP session. By dropping that
-session (reboot, or a mobile-data toggle) you force the ISP to hand out a new
+session (mobile-data toggle, or a modem reboot) you force the ISP to hand out a new
 IP. This project automates that whole dance and exposes it as a one-shot CLI
 command or a tiny HTTP endpoint.
 
@@ -31,7 +31,7 @@ Scraper / app ──POST /rotate──▶ aintproxy (HTTP service :5000)
 A flip runs these steps:
 
 1. Read the current public IP through your local proxy.
-2. **Reboot the modem** (default) *or* **toggle mobile data** off/on.
+2. **Toggle mobile data** off/on (default) *or* **reboot the modem**.
 3. Reconnect the network interface and re-apply the policy routing rules.
 4. Poll until a new public IP appears (or fail after a timeout).
 
@@ -92,11 +92,10 @@ network:
   use_sudo: true
 
 rotation:
-  mode: "reboot"                     # "reboot" or "toggle"
-  reboot_wait_seconds: 35
-  toggle_wait_seconds: 35
-  connect_attempts: 15
-  connect_retry_seconds: 3
+  reboot_wait: 35
+  data_off_wait: 35
+  ip_check_attempts: 15
+  ip_check_interval: 3
 
 server:
   host: "0.0.0.0"
@@ -112,8 +111,7 @@ See `config.example.yaml` for all options.
 
 ```bash
 aintproxy rotate              # one flip, prints old + new IP
-aintproxy reboot              # just reboot the modem
-aintproxy toggle              # just toggle mobile data off/on
+aintproxy hard-rotate         # full hardware modem reboot on all interfaces
 aintproxy serve               # start the HTTP service (foreground)
 aintproxy drivers             # list supported modem drivers
 aintproxy version             # print version
@@ -183,10 +181,10 @@ go vet ./...
   changed on your firmware. Verify you can log in at `http://<modem.ip>`.
 - **Timed out waiting for a new public IP** -- the proxy isn't routing through
   the modem, `ip_check_url` is unreachable, or the ISP reuses IPs. Try raising
-  `reboot_wait_seconds`/`toggle_wait_seconds`.
+  `reboot_wait`/`data_off_wait` or use `hard-rotate`.
 - **Command failed** -- check the modem interface name and your `sudo` setup.
 - **Same IP every time** -- your ISP hands out the same address from a pool.
-  Wait longer between flips or switch to `toggle` mode.
+  Wait longer between flips or try `hard-rotate` for a full modem reboot.
 
 ## License
 

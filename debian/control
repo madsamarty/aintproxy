@@ -11,7 +11,7 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sudo
 Description: Modem IP rotator
- AintProxy forces a new public IP address by rebooting or toggling a
+ AintProxy forces a new public IP address by rotating the IP on a
  4G/5G modem via its management API. It handles Linux routing
  (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
  .

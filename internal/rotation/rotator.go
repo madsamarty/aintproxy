@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/devices"
 	"github.com/mohamed-sameh/aintproxy/internal/modem"
 )
 
@@ -106,8 +105,8 @@ func (r *Rotator) ToggleMobileData() error {
 	if err := r.Modem.SetMobileData(false); err != nil {
 		return err
 	}
-	r.Logger.Info("Waiting for ISP to release lease", "seconds", r.Config.Rotation.ToggleWaitSeconds)
-	time.Sleep(time.Duration(r.Config.Rotation.ToggleWaitSeconds) * time.Second)
+	r.Logger.Info("Waiting for ISP to release lease", "seconds", r.Config.Rotation.ToggleWait)
+	time.Sleep(time.Duration(r.Config.Rotation.ToggleWait) * time.Second)
 	r.Logger.Info("Enabling mobile data...")
 	return r.Modem.SetMobileData(true)
 }
@@ -143,15 +142,15 @@ func (r *Rotator) ApplyRouting() error {
 }
 
 func (r *Rotator) WaitForIP() (string, error) {
-	for attempt := 1; attempt <= r.Config.Rotation.ConnectAttempts; attempt++ {
+	for attempt := 1; attempt <= r.Config.Rotation.IPCheckAttempts; attempt++ {
 		ip, _ := r.CurrentIP()
 		if ip != "" {
 			return ip, nil
 		}
 		r.Logger.Info("Still connecting...",
 			"attempt", attempt,
-			"max", r.Config.Rotation.ConnectAttempts)
-		time.Sleep(time.Duration(r.Config.Rotation.ConnectRetrySeconds) * time.Second)
+			"max", r.Config.Rotation.IPCheckAttempts)
+		time.Sleep(time.Duration(r.Config.Rotation.IPCheckInterval) * time.Second)
 	}
 	return "", &RotationError{Msg: "timed out waiting for a new public IP"}
 }
@@ -191,8 +190,8 @@ func (r *Rotator) RotateReboot() (string, string, error) {
 		return "", "", err
 	}
 	r.Logger.Info("Modem restarting...",
-		"seconds", r.Config.Rotation.RebootWaitSeconds)
-	time.Sleep(time.Duration(r.Config.Rotation.RebootWaitSeconds) * time.Second)
+		"seconds", r.Config.Rotation.RebootWait)
+	time.Sleep(time.Duration(r.Config.Rotation.RebootWait) * time.Second)
 
 	if err := r.ReconnectInterface(); err != nil {
 		return oldIP, "", err
@@ -216,42 +215,15 @@ type RotateResult struct {
 	Err       error
 }
 
-// HardRotate discovers all modem interfaces and reboots each one.
+// HardRotate performs a full hardware modem reboot on the configured interface.
 func (r *Rotator) HardRotate() ([]RotateResult, error) {
-	modems, err := devices.ListModems(r.RunCmd)
-	if err != nil {
-		return nil, fmt.Errorf("discovering modems: %w", err)
-	}
-
-	if len(modems) == 0 {
-		return nil, &RotationError{Msg: "no modem interfaces found"}
-	}
-
-	r.Logger.Info("Found modem interfaces", "count", len(modems))
-
-	var results []RotateResult
-	for _, m := range modems {
-		r.Logger.Info("Rebooting interface", "interface", m.Interface)
-
-		rot := &Rotator{
-			Config:      r.Config,
-			Modem:       r.Modem,
-			Logger:      r.Logger,
-			RunCmd:      r.RunCmd,
-			CurrentIPIs: r.CurrentIPIs,
-		}
-		rot.Config.Modem.Interface = m.Interface
-
-		oldIP, newIP, err := rot.RotateReboot()
-		results = append(results, RotateResult{
-			Interface: m.Interface,
-			OldIP:     oldIP,
-			NewIP:     newIP,
-			Err:       err,
-		})
-	}
-
-	return results, nil
+	oldIP, newIP, err := r.RotateReboot()
+	return []RotateResult{{
+		Interface: r.Config.Modem.Interface,
+		OldIP:     oldIP,
+		NewIP:     newIP,
+		Err:       err,
+	}}, nil
 }
 
 type InfoResult struct {
@@ -259,7 +231,6 @@ type InfoResult struct {
 	Interface   string
 	ModemIP     string
 	ModemState  string
-	Mode        string
 	InterfaceOK bool
 }
 
@@ -268,7 +239,6 @@ func (r *Rotator) Info() (*InfoResult, error) {
 	info := &InfoResult{
 		Interface: r.Config.Modem.Interface,
 		ModemIP:   r.Config.Modem.IP,
-		Mode:      r.Config.Rotation.Mode,
 	}
 
 	ip, _ := r.CurrentIP()

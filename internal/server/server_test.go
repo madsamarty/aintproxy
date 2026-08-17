@@ -29,8 +29,7 @@ func testConfig(port int) *config.Config {
 			UseSudo:    false,
 		},
 		Rotation: config.RotationConfig{
-			Mode:              "reboot",
-			RebootWaitSeconds: 0,
+			RebootWait: 0,
 		},
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",

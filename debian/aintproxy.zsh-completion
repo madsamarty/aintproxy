@@ -4,9 +4,8 @@ _aintproxy() {
     local -a commands
     commands=(
         'rotate:Run a single IP rotation'
+        'hard-rotate:Full hardware modem reboot/reset'
         'serve:Start the HTTP rotation service'
-        'reboot:Reboot the modem'
-        'toggle:Toggle modem mobile data'
         'drivers:List supported modem drivers'
         'version:Print version'
     )

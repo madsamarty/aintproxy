@@ -1,9 +1,8 @@
 complete -c aintproxy -f
 
 complete -c aintproxy -n '__fish_use_subcommand' -a rotate -d 'Run a single IP rotation'
+complete -c aintproxy -n '__fish_use_subcommand' -a hard-rotate -d 'Full hardware modem reboot/reset'
 complete -c aintproxy -n '__fish_use_subcommand' -a serve -d 'Start the HTTP rotation service'
-complete -c aintproxy -n '__fish_use_subcommand' -a reboot -d 'Reboot the modem'
-complete -c aintproxy -n '__fish_use_subcommand' -a toggle -d 'Toggle modem mobile data'
 complete -c aintproxy -n '__fish_use_subcommand' -a drivers -d 'List supported modem drivers'
 complete -c aintproxy -n '__fish_use_subcommand' -a version -d 'Print version'
 

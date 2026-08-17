@@ -27,11 +27,10 @@ func testConfig(overrides map[string]any) *config.Config {
 			UseSudo:        false,
 		},
 		Rotation: config.RotationConfig{
-			Mode:                "toggle",
-			RebootWaitSeconds:   0,
-			ToggleWaitSeconds:   0,
-			ConnectAttempts:     1,
-			ConnectRetrySeconds: 0,
+			RebootWait:      0,
+			ToggleWait:      0,
+			IPCheckAttempts: 1,
+			IPCheckInterval: 0,
 		},
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",
@@ -40,10 +39,8 @@ func testConfig(overrides map[string]any) *config.Config {
 	}
 	for k, v := range overrides {
 		switch k {
-		case "mode":
-			cfg.Rotation.Mode = v.(string)
 		case "connect_attempts":
-			cfg.Rotation.ConnectAttempts = v.(int)
+			cfg.Rotation.IPCheckAttempts = v.(int)
 		}
 	}
 	return cfg

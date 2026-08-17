@@ -3,7 +3,7 @@ _aintproxy_completions() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    commands="rotate serve reboot toggle drivers version"
+    commands="rotate hard-rotate serve drivers version"
 
     if [[ ${cur} == -* ]] ; then
         COMPREPLY=( $(compgen -W "--config --help" -- ${cur}) )

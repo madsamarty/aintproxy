@@ -8,7 +8,7 @@ aintproxy \- modem IP rotator
 .I command
 .SH DESCRIPTION
 .B AintProxy
-forces a new public IP address by rebooting or toggling a 4G/5G modem
+forces a new public IP address by rotating the IP on a 4G/5G modem
 via its management API. It handles Linux routing and exposes rotation as a
 CLI tool or HTTP endpoint.
 .PP
@@ -21,14 +21,11 @@ to see all supported modems.
 .B rotate
 Run a single IP rotation and print old/new IPs.
 .TP
+.B hard-rotate
+Full hardware modem reboot/reset on all interfaces.
+.TP
 .B serve
 Start the HTTP rotation service (foreground).
-.TP
-.B reboot
-Reboot the modem.
-.TP
-.B toggle
-Toggle the modem mobile data off/on.
 .TP
 .B version
 Print version and exit.

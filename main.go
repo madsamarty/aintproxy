@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
@@ -20,6 +22,9 @@ import (
 	_ "github.com/mohamed-sameh/aintproxy/internal/tplink"
 	_ "github.com/mohamed-sameh/aintproxy/internal/zte"
 )
+
+//go:embed config.example.yaml
+var defaultConfig []byte
 
 const version = "0.1.0"
 
@@ -52,6 +57,10 @@ func main() {
 
 	case "drivers":
 		runDrivers()
+		return
+
+	case "config":
+		runConfig(*configPath)
 		return
 	}
 
@@ -97,12 +106,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Public IP:    %s\n", orUnknown(info.PublicIP))
-		fmt.Printf("Interface:    %s\n", info.Interface)
-		fmt.Printf("Modem IP:     %s\n", info.ModemIP)
-		fmt.Printf("Modem state:  %s\n", orUnknown(info.ModemState))
-		fmt.Printf("Rotation:     %s\n", info.Mode)
-		if info.InterfaceOK {
+	fmt.Printf("Public IP:    %s\n", orUnknown(info.PublicIP))
+	fmt.Printf("Interface:    %s\n", info.Interface)
+	fmt.Printf("Modem IP:     %s\n", info.ModemIP)
+	fmt.Printf("Modem state:  %s\n", orUnknown(info.ModemState))
+	if info.InterfaceOK {
 			fmt.Printf("Status:       connected\n")
 		} else {
 			fmt.Printf("Status:       disconnected\n")
@@ -129,20 +137,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			os.Exit(1)
 		}
-
-	case "reboot":
-		if err := rot.RebootModem(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Reboot command sent to the modem.")
-
-	case "toggle":
-		if err := rot.ToggleMobileData(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Mobile data toggled.")
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
@@ -211,22 +205,43 @@ func runDrivers() {
 	}
 }
 
+func runConfig(path string) {
+	if _, err := os.Stat(path); err == nil {
+		fmt.Fprintf(os.Stderr, "Config already exists at %s\n", path)
+		os.Exit(1)
+	}
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := os.WriteFile(path, defaultConfig, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing config: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Config written to %s\n", path)
+	fmt.Println("Edit it with your modem password, then run: aintproxy rotate")
+}
+
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "aintproxy %s — modem IP rotator\n\n", version)
-	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config path] <command>\n\n")
+	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config <path>] [--help] <command>\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
+	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintproxy/config.yaml\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
 	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all interfaces\n")
 	fmt.Fprintf(os.Stderr, "  devices      List all network devices and their status\n")
 	fmt.Fprintf(os.Stderr, "  drivers      List supported modem drivers\n")
 	fmt.Fprintf(os.Stderr, "  info         Show current IP, interface, and modem status\n")
 	fmt.Fprintf(os.Stderr, "  serve        Start the HTTP rotation service\n")
-	fmt.Fprintf(os.Stderr, "  reboot       Reboot the modem\n")
-	fmt.Fprintf(os.Stderr, "  toggle       Toggle the modem mobile data off/on\n")
 	fmt.Fprintf(os.Stderr, "  help         Show this help message\n")
 	fmt.Fprintf(os.Stderr, "  version      Print version and exit\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
-	flag.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "  --config <path>   path to config file (default %q)\n", config.DefaultConfigPath)
+	fmt.Fprintf(os.Stderr, "  --help            show this help message\n")
 }
 
 func orUnknown(s string) string {

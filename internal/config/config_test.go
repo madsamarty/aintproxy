@@ -11,9 +11,6 @@ func TestDefaults(t *testing.T) {
 	if cfg.Modem.IP != "192.168.8.1" {
 		t.Errorf("modem ip = %q, want %q", cfg.Modem.IP, "192.168.8.1")
 	}
-	if cfg.Rotation.Mode != "reboot" {
-		t.Errorf("rotation mode = %q, want %q", cfg.Rotation.Mode, "reboot")
-	}
 	if cfg.Server.Port != 5000 {
 		t.Errorf("server port = %d, want 5000", cfg.Server.Port)
 	}
@@ -37,11 +34,10 @@ network:
   ip_check_url: "https://ifconfig.me"
   use_sudo: false
 rotation:
-  mode: "toggle"
-  reboot_wait_seconds: 10
-  toggle_wait_seconds: 15
-  connect_attempts: 5
-  connect_retry_seconds: 1
+  reboot_wait: 10
+  data_off_wait: 15
+  ip_check_attempts: 5
+  ip_check_interval: 1
 server:
   host: "127.0.0.1"
   port: 8000
@@ -76,11 +72,8 @@ server:
 	if cfg.Network.UseSudo != false {
 		t.Errorf("use_sudo = %v, want false", cfg.Network.UseSudo)
 	}
-	if cfg.Rotation.Mode != "toggle" {
-		t.Errorf("rotation mode = %q, want %q", cfg.Rotation.Mode, "toggle")
-	}
-	if cfg.Rotation.RebootWaitSeconds != 10 {
-		t.Errorf("reboot wait = %d, want 10", cfg.Rotation.RebootWaitSeconds)
+	if cfg.Rotation.RebootWait != 10 {
+		t.Errorf("reboot wait = %d, want 10", cfg.Rotation.RebootWait)
 	}
 	if cfg.Server.Port != 8000 {
 		t.Errorf("server port = %d, want 8000", cfg.Server.Port)
@@ -122,16 +115,7 @@ func TestLoadMissingPassword(t *testing.T) {
 }
 
 func TestLoadInvalidMode(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "badmode.yaml")
-	content := "modem:\n  password: x\nrotation:\n  mode: warp\n"
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := Load(path)
-	if err == nil {
-		t.Fatal("expected error for invalid rotation mode")
-	}
+	t.Skip("rotation.mode removed — no longer validated")
 }
 
 func TestPartialConfigUsesDefaults(t *testing.T) {

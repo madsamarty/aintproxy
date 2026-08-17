@@ -33,11 +33,10 @@ type NetworkConfig struct {
 }
 
 type RotationConfig struct {
-	Mode                string `yaml:"mode"`
-	RebootWaitSeconds   int    `yaml:"reboot_wait_seconds"`
-	ToggleWaitSeconds   int    `yaml:"toggle_wait_seconds"`
-	ConnectAttempts     int    `yaml:"connect_attempts"`
-	ConnectRetrySeconds int    `yaml:"connect_retry_seconds"`
+	RebootWait      int `yaml:"reboot_wait"`
+	ToggleWait      int `yaml:"data_off_wait"`
+	IPCheckAttempts int `yaml:"ip_check_attempts"`
+	IPCheckInterval int `yaml:"ip_check_interval"`
 }
 
 type ServerConfig struct {
@@ -63,11 +62,10 @@ func defaults() *Config {
 			UseSudo:        true,
 		},
 		Rotation: RotationConfig{
-			Mode:                "reboot",
-			RebootWaitSeconds:   35,
-			ToggleWaitSeconds:   35,
-			ConnectAttempts:     15,
-			ConnectRetrySeconds: 3,
+			RebootWait:      35,
+			ToggleWait:      35,
+			IPCheckAttempts: 15,
+			IPCheckInterval: 3,
 		},
 		Server: ServerConfig{
 			Host: "0.0.0.0",
@@ -101,11 +99,6 @@ func Load(path string) (*Config, error) {
 func (c *Config) validate() error {
 	if c.Modem.Password == "" {
 		return fmt.Errorf("modem.password is required")
-	}
-
-	validModes := map[string]bool{"reboot": true, "toggle": true}
-	if !validModes[c.Rotation.Mode] {
-		return fmt.Errorf("rotation.mode must be 'reboot' or 'toggle', got %q", c.Rotation.Mode)
 	}
 
 	if c.Network.RoutingTable == "" {
