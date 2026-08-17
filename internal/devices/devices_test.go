@@ -101,7 +101,7 @@ func TestInterfaceInfoNotFound(t *testing.T) {
 	}
 }
 
-func TestIsHuaweiInterface(t *testing.T) {
+func TestIsModemInterface(t *testing.T) {
 	cases := []struct {
 		name string
 		want bool
@@ -110,13 +110,14 @@ func TestIsHuaweiInterface(t *testing.T) {
 		{"huawei0", true},
 		{"wwan0", true},
 		{"usb0", true},
+		{"cdc-wdm0", true},
 		{"eth0", false},
 		{"lo", false},
 		{"docker0", false},
 	}
 	for _, tc := range cases {
-		if got := isHuaweiInterface(tc.name); got != tc.want {
-			t.Errorf("isHuaweiInterface(%q) = %v, want %v", tc.name, got, tc.want)
+		if got := isModemInterface(tc.name); got != tc.want {
+			t.Errorf("isModemInterface(%q) = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }

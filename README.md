@@ -1,6 +1,6 @@
 # AintProxy
 
-Flip your public IP address by rebooting or toggling a Huawei 4G/5G modem.
+Flip your public IP address by rebooting or toggling a 4G/5G modem.
 
 Most consumer 4G/5G connections sit behind ISP **CGNAT**, so your public IP is
 only stable for as long as the modem holds its PPP session. By dropping that
@@ -8,8 +8,8 @@ session (reboot, or a mobile-data toggle) you force the ISP to hand out a new
 IP. This project automates that whole dance and exposes it as a one-shot CLI
 command or a tiny HTTP endpoint.
 
-Built and tested on Linux against Huawei HiLink gateways (B525, B535, E5172 and
-similar) on Vodafone CGNAT.
+Currently supported: Huawei HiLink gateways (B525, B535, E5172 and similar).
+Run `aintproxy drivers` to see all supported modems.
 
 ## How it works
 
@@ -23,7 +23,7 @@ Scraper / app ──POST /rotate──▶ aintproxy (HTTP service :5000)
                                local proxy :3128        (squid / tinyproxy)
                                         │
                                         ▼
-                        Huawei 4G/5G modem 192.168.8.1 (HiLink API)
+                           4G/5G modem 192.168.8.1     (auto-detected)
                                         │
                                      ISP CGNAT ──▶ new public IP
 ```
@@ -38,8 +38,8 @@ A flip runs these steps:
 ## Requirements
 
 - Linux with **iproute2** (`ip`, `sysctl`).
-- A Huawei 4G/5G modem running the HiLink web API (admin page reachable over
-  HTTP, e.g. `192.168.8.1`).
+- A supported 4G/5G modem (admin page reachable over HTTP). Run
+  `aintproxy drivers` to see supported models.
 - Root (or passwordless `sudo`) for the networking commands.
 - A local HTTP proxy (squid, tinyproxy, ...) that routes traffic out through the
   modem. The flip verifies the new IP through this proxy.
@@ -115,6 +115,7 @@ aintproxy rotate              # one flip, prints old + new IP
 aintproxy reboot              # just reboot the modem
 aintproxy toggle              # just toggle mobile data off/on
 aintproxy serve               # start the HTTP service (foreground)
+aintproxy drivers             # list supported modem drivers
 aintproxy version             # print version
 
 aintproxy --config /path/to/config.yaml rotate   # custom config

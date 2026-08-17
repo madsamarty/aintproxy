@@ -34,13 +34,13 @@ Priority: optional
 Architecture: amd64
 Maintainer: Mohamed Sameh <mohamed.sameh@example.com>
 Recommends: sudo
-Description: Huawei modem IP rotator
+Description: Modem IP rotator
  AintProxy forces a new public IP address by rebooting or toggling a
- Huawei 4G/5G modem via the HiLink web API. It handles Linux routing
+ 4G/5G modem via its management API. It handles Linux routing
  (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
  .
  Built for CGNAT environments where the ISP hands out fresh IPs on
- modem reconnect.
+ modem reconnect. Currently supports Huawei HiLink gateways.
 EOF
 
     cat > ${PKGDIR}/DEBIAN/postinst <<'SCRIPT'

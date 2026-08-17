@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
+	"github.com/mohamed-sameh/aintproxy/internal/modem"
 )
 
 func testConfig(overrides map[string]any) *config.Config {
@@ -52,10 +53,22 @@ func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 }
 
+func testRotator(cfg *config.Config, m modem.Modem) *Rotator {
+	r := &Rotator{
+		Config: cfg,
+		Modem:  m,
+		Logger: testLogger(),
+	}
+	r.RunCmd = func(name string, args ...string) ([]byte, error) {
+		return []byte(""), nil
+	}
+	return r
+}
+
 func TestCurrentIPReturnsEmptyOnError(t *testing.T) {
 	cfg := testConfig(nil)
 	cfg.Network.IPCheckURL = "http://192.0.2.1:1" // TEST-NET, unreachable
-	r := New(cfg, testLogger())
+	r := testRotator(cfg, &fakeModem{})
 	ip, err := r.CurrentIP()
 	if err != nil {
 		t.Errorf("CurrentIP() error = %v, want nil", err)
@@ -71,11 +84,7 @@ func TestRotateFastLeaseDrop(t *testing.T) {
 	})
 
 	fm := &fakeModem{}
-	r := New(cfg, testLogger())
-	r.Modem = fm
-	r.RunCmd = func(name string, args ...string) ([]byte, error) {
-		return []byte(""), nil
-	}
+	r := testRotator(cfg, fm)
 	call := 0
 	r.CurrentIPIs = func() (string, error) {
 		call++
@@ -103,11 +112,7 @@ func TestRotateFastLeaseDrop(t *testing.T) {
 func TestRotateFastLeaseDropFailsOnModemError(t *testing.T) {
 	cfg := testConfig(nil)
 
-	r := New(cfg, testLogger())
-	r.Modem = &fakeModem{setMobileDataErr: fmt.Errorf("modem on fire")}
-	r.RunCmd = func(name string, args ...string) ([]byte, error) {
-		return []byte(""), nil
-	}
+	r := testRotator(cfg, &fakeModem{setMobileDataErr: fmt.Errorf("modem on fire")})
 	r.CurrentIPIs = func() (string, error) { return "1.1.1.1", nil }
 
 	_, _, err := r.Rotate()
@@ -122,11 +127,7 @@ func TestRotateRebootDeepClean(t *testing.T) {
 	})
 
 	fm := &fakeModem{}
-	r := New(cfg, testLogger())
-	r.Modem = fm
-	r.RunCmd = func(name string, args ...string) ([]byte, error) {
-		return []byte(""), nil
-	}
+	r := testRotator(cfg, fm)
 	call := 0
 	r.CurrentIPIs = func() (string, error) {
 		call++
@@ -159,11 +160,7 @@ func TestRotateRebootFailsOnModemError(t *testing.T) {
 		"connect_attempts": 3,
 	})
 
-	r := New(cfg, testLogger())
-	r.Modem = &fakeModem{rebootErr: fmt.Errorf("reboot failed")}
-	r.RunCmd = func(name string, args ...string) ([]byte, error) {
-		return []byte(""), nil
-	}
+	r := testRotator(cfg, &fakeModem{rebootErr: fmt.Errorf("reboot failed")})
 	r.CurrentIPIs = func() (string, error) { return "1.1.1.1", nil }
 
 	_, _, err := r.RotateReboot()

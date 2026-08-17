@@ -1,5 +1,5 @@
 [Unit]
-Description=AintProxy — Huawei modem IP rotator
+Description=AintProxy — modem IP rotator
 After=network-online.target
 
 [Service]

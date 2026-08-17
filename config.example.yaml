@@ -2,9 +2,9 @@
 # Copy to /etc/aintproxy/config.yaml and edit.
 
 modem:
-  ip: "192.168.8.1"           # Huawei HiLink modem admin page IP
+  ip: "192.168.8.1"           # Modem admin page IP (auto-detected)
   user: "admin"               # Modem admin username
-  password: ""                # REQUIRED — modem admin password
+  password: "admin"           # REQUIRED — modem admin password
   interface: "vodafone0"      # Network interface name for the modem
 
 network:

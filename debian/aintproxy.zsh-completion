@@ -5,8 +5,9 @@ _aintproxy() {
     commands=(
         'rotate:Run a single IP rotation'
         'serve:Start the HTTP rotation service'
-        'reboot:Reboot the Huawei modem'
+        'reboot:Reboot the modem'
         'toggle:Toggle modem mobile data'
+        'drivers:List supported modem drivers'
         'version:Print version'
     )
 

@@ -39,6 +39,25 @@ func testConfig(port int) *config.Config {
 	}
 }
 
+func testServer(cfg *config.Config, rot Rotator) *Server {
+	s := &Server{
+		config:  cfg,
+		logger:  testLogger(),
+		rotator: rot,
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("POST /rotate", s.handleRotate)
+
+	s.http = &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		Handler: mux,
+	}
+
+	return s
+}
+
 type mockRotator struct {
 	oldIP  string
 	newIP  string
@@ -51,8 +70,7 @@ func (m *mockRotator) Rotate() (string, string, error) {
 
 func TestHealthEndpoint(t *testing.T) {
 	cfg := testConfig(18080)
-	s := New(cfg, testLogger())
-	s.rotator = &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"}
+	s := testServer(cfg, &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"})
 
 	go s.Start()
 	defer s.Shutdown(nil)
@@ -76,8 +94,7 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestRotateEndpoint(t *testing.T) {
 	cfg := testConfig(18081)
-	s := New(cfg, testLogger())
-	s.rotator = &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"}
+	s := testServer(cfg, &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"})
 
 	go s.Start()
 	defer s.Shutdown(nil)
@@ -111,8 +128,7 @@ func TestRotateEndpoint(t *testing.T) {
 func TestRotateRequiresAuth(t *testing.T) {
 	cfg := testConfig(18082)
 	cfg.Server.AuthToken = "sekret"
-	s := New(cfg, testLogger())
-	s.rotator = &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"}
+	s := testServer(cfg, &mockRotator{oldIP: "1.1.1.1", newIP: "2.2.2.2"})
 
 	go s.Start()
 	defer s.Shutdown(nil)
@@ -148,8 +164,7 @@ func TestRotateRequiresAuth(t *testing.T) {
 
 func TestRotateFailureReturns500(t *testing.T) {
 	cfg := testConfig(18084)
-	s := New(cfg, testLogger())
-	s.rotator = &mockRotator{err: fmt.Errorf("modem on fire")}
+	s := testServer(cfg, &mockRotator{err: fmt.Errorf("modem on fire")})
 
 	go s.Start()
 	defer s.Shutdown(nil)
@@ -170,8 +185,7 @@ func TestRotateFailureReturns500(t *testing.T) {
 
 func TestUnknownRouteReturns404(t *testing.T) {
 	cfg := testConfig(18085)
-	s := New(cfg, testLogger())
-	s.rotator = &mockRotator{}
+	s := testServer(cfg, &mockRotator{})
 
 	go s.Start()
 	defer s.Shutdown(nil)

@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/mohamed-sameh/aintproxy/internal/modem"
 )
 
 var (
@@ -26,10 +28,26 @@ func (e *ModemError) Error() string {
 	return fmt.Sprintf("huawei: %s: %s", e.Op, e.Msg)
 }
 
-// ModemInterface is the interface for modem operations.
-type ModemInterface interface {
-	Reboot() error
-	SetMobileData(enabled bool) error
+func init() {
+	modem.Register(&modem.Driver{
+		Name:        "huawei-hilink",
+		Description: "Huawei HiLink gateways (B525, B535, E5172, and similar)",
+		Status:      "supported",
+		Detect:      detect,
+		New:         func(ip, user, pass string) modem.Modem { return New(ip, user, pass) },
+	})
+}
+
+// detect probes the modem for the HiLink SesTokInfo endpoint.
+func detect(ip, user, pass string) bool {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + ip + "/api/webserver/SesTokInfo")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return sesRe.Match(body) && tokRe.Match(body)
 }
 
 type Modem struct {

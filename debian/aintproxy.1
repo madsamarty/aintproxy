@@ -1,19 +1,21 @@
 .\" AintProxy man page
 .TH AINTPROXY 1 "August 2026" "aintproxy 0.1.0" "User Commands"
 .SH NAME
-aintproxy \- Huawei modem IP rotator
+aintproxy \- modem IP rotator
 .SH SYNOPSIS
 .B aintproxy
 [\fB\-\-config\fR \fIPATH\fR]
 .I command
 .SH DESCRIPTION
 .B AintProxy
-forces a new public IP address by rebooting or toggling a Huawei 4G/5G modem
-via the HiLink web API. It handles Linux routing and exposes rotation as a
+forces a new public IP address by rebooting or toggling a 4G/5G modem
+via its management API. It handles Linux routing and exposes rotation as a
 CLI tool or HTTP endpoint.
 .PP
 Built for CGNAT environments where the ISP hands out fresh IPs on modem
-reconnect.
+reconnect. Currently supports Huawei HiLink gateways; run
+.B aintproxy drivers
+to see all supported modems.
 .SH COMMANDS
 .TP
 .B rotate
@@ -23,7 +25,7 @@ Run a single IP rotation and print old/new IPs.
 Start the HTTP rotation service (foreground).
 .TP
 .B reboot
-Reboot the Huawei modem.
+Reboot the modem.
 .TP
 .B toggle
 Toggle the modem mobile data off/on.

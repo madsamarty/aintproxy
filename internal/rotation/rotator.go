@@ -13,7 +13,7 @@ import (
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
 	"github.com/mohamed-sameh/aintproxy/internal/devices"
-	"github.com/mohamed-sameh/aintproxy/internal/huawei"
+	"github.com/mohamed-sameh/aintproxy/internal/modem"
 )
 
 type RotationError struct {
@@ -26,7 +26,7 @@ func (e *RotationError) Error() string {
 
 type Rotator struct {
 	Config    *config.Config
-	Modem     huawei.ModemInterface
+	Modem     modem.Modem
 	Logger    *slog.Logger
 	// RunCmd is overridable for testing.
 	RunCmd func(name string, args ...string) ([]byte, error)
@@ -34,14 +34,20 @@ type Rotator struct {
 	CurrentIPIs func() (string, error)
 }
 
-func New(cfg *config.Config, logger *slog.Logger) *Rotator {
+func New(cfg *config.Config, logger *slog.Logger) (*Rotator, error) {
+	m, driverName, err := modem.Detect(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("Detected modem", "driver", driverName)
+
 	r := &Rotator{
 		Config: cfg,
-		Modem:  huawei.New(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password),
+		Modem:  m,
 		Logger: logger,
 	}
 	r.RunCmd = r.defaultRunCmd
-	return r
+	return r, nil
 }
 
 func (r *Rotator) defaultRunCmd(name string, args ...string) ([]byte, error) {
@@ -210,7 +216,7 @@ type RotateResult struct {
 	Err       error
 }
 
-// HardRotate discovers all Huawei modem interfaces and reboots each one.
+// HardRotate discovers all modem interfaces and reboots each one.
 func (r *Rotator) HardRotate() ([]RotateResult, error) {
 	modems, err := devices.ListModems(r.RunCmd)
 	if err != nil {
@@ -218,7 +224,7 @@ func (r *Rotator) HardRotate() ([]RotateResult, error) {
 	}
 
 	if len(modems) == 0 {
-		return nil, &RotationError{Msg: "no Huawei modem interfaces found"}
+		return nil, &RotationError{Msg: "no modem interfaces found"}
 	}
 
 	r.Logger.Info("Found modem interfaces", "count", len(modems))

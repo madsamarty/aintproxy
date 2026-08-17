@@ -12,8 +12,11 @@ import (
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
 	"github.com/mohamed-sameh/aintproxy/internal/devices"
+	"github.com/mohamed-sameh/aintproxy/internal/modem"
 	"github.com/mohamed-sameh/aintproxy/internal/rotation"
 	"github.com/mohamed-sameh/aintproxy/internal/server"
+
+	_ "github.com/mohamed-sameh/aintproxy/internal/huawei"
 )
 
 const version = "0.1.0"
@@ -44,6 +47,10 @@ func main() {
 	case "devices":
 		runDevices()
 		return
+
+	case "drivers":
+		runDrivers()
+		return
 	}
 
 	cfg, err := config.Load(*configPath)
@@ -52,7 +59,11 @@ func main() {
 		os.Exit(2)
 	}
 
-	rot := rotation.New(cfg, logger)
+	rot, err := rotation.New(cfg, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Modem error: %v\n", err)
+		os.Exit(2)
+	}
 
 	switch cmd {
 	case "rotate":
@@ -96,7 +107,11 @@ func main() {
 		}
 
 	case "serve":
-		srv := server.New(cfg, logger)
+		srv, err := server.New(cfg, logger)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+			os.Exit(2)
+		}
 
 		ctx, stop := signal.NotifyContext(context.Background(),
 			syscall.SIGINT, syscall.SIGTERM)
@@ -157,16 +172,48 @@ func runDevices() {
 	}
 }
 
+func runDrivers() {
+	drivers := modem.Drivers()
+	if len(drivers) == 0 {
+		fmt.Println("No modem drivers registered.")
+		return
+	}
+
+	var supported, planned []*modem.Driver
+	for _, d := range drivers {
+		switch d.Status {
+		case "supported":
+			supported = append(supported, d)
+		default:
+			planned = append(planned, d)
+		}
+	}
+
+	if len(supported) > 0 {
+		fmt.Println("SUPPORTED DRIVERS")
+		for _, d := range supported {
+			fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+		}
+	}
+	if len(planned) > 0 {
+		fmt.Println("\nPLANNED")
+		for _, d := range planned {
+			fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+		}
+	}
+}
+
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "aintproxy %s — Huawei modem IP rotator\n\n", version)
+	fmt.Fprintf(os.Stderr, "aintproxy %s — modem IP rotator\n\n", version)
 	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config path] <command>\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
-	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all Huawei interfaces\n")
+	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all interfaces\n")
 	fmt.Fprintf(os.Stderr, "  devices      List all network devices and their status\n")
+	fmt.Fprintf(os.Stderr, "  drivers      List supported modem drivers\n")
 	fmt.Fprintf(os.Stderr, "  info         Show current IP, interface, and modem status\n")
 	fmt.Fprintf(os.Stderr, "  serve        Start the HTTP rotation service\n")
-	fmt.Fprintf(os.Stderr, "  reboot       Reboot the Huawei modem\n")
+	fmt.Fprintf(os.Stderr, "  reboot       Reboot the modem\n")
 	fmt.Fprintf(os.Stderr, "  toggle       Toggle the modem mobile data off/on\n")
 	fmt.Fprintf(os.Stderr, "  help         Show this help message\n")
 	fmt.Fprintf(os.Stderr, "  version      Print version and exit\n")

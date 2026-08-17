@@ -26,11 +26,16 @@ type Server struct {
 	mu      sync.Mutex
 }
 
-func New(cfg *config.Config, logger *slog.Logger) *Server {
+func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
+	rot, err := rotation.New(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		config:  cfg,
 		logger:  logger,
-		rotator: rotation.New(cfg, logger),
+		rotator: rot,
 	}
 
 	mux := http.NewServeMux()
@@ -42,7 +47,7 @@ func New(cfg *config.Config, logger *slog.Logger) *Server {
 		Handler: mux,
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Server) Start() error {

@@ -25,7 +25,8 @@ func ListAll(runCmd func(string, ...string) ([]byte, error)) ([]Device, error) {
 	return parseDevices(string(out)), nil
 }
 
-// ListModems returns only Huawei modem interfaces (usb, wwan types).
+// ListModems returns only modem interfaces (usb, wwan, cdc-wdm, qmi, mbim types
+// or interfaces with known modem name prefixes).
 func ListModems(runCmd func(string, ...string) ([]byte, error)) ([]Device, error) {
 	all, err := ListAll(runCmd)
 	if err != nil {
@@ -33,7 +34,7 @@ func ListModems(runCmd func(string, ...string) ([]byte, error)) ([]Device, error
 	}
 	var modems []Device
 	for _, d := range all {
-		if isModemType(d.Type) || isHuaweiInterface(d.Interface) {
+		if isModemType(d.Type) || isModemInterface(d.Interface) {
 			modems = append(modems, d)
 		}
 	}
@@ -101,12 +102,12 @@ func formatDevice(parts []string) string {
 
 func isModemType(t string) bool {
 	t = strings.ToLower(t)
-	return t == "usb" || t == "wwan"
+	return t == "usb" || t == "wwan" || t == "cdc-wdm" || t == "qmi" || t == "mbim"
 }
 
-func isHuaweiInterface(name string) bool {
+func isModemInterface(name string) bool {
 	name = strings.ToLower(name)
-	prefixes := []string{"vodafone", "huawei", "wwan", "usb"}
+	prefixes := []string{"vodafone", "huawei", "wwan", "usb", "cdc-wdm", "qmi", "mbim", "wwp", "usbmodem", "usb_"}
 	for _, p := range prefixes {
 		if strings.HasPrefix(name, p) {
 			return true
