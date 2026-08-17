@@ -2,17 +2,27 @@ services:
   ipflip:
     build: .
     container_name: ipflip
-    # Host networking is required so the container can:
-    #   1. Reach the Huawei modem on the LAN (192.168.8.1)
-    #   2. Reach the local proxy (127.0.0.1:3128) on the host
-    #   3. Run nmcli/ip/sysctl against the host's network stack
     network_mode: host
-    privileged: true
+    # Drop ALL capabilities, then add only what we actually need:
+    #   NET_ADMIN — ip route/rule, sysctl network tuning
+    # We keep host networking (not a capability) for modem LAN access.
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    # Prevent the container from gaining new privileges via setuid binaries
+    security_opt:
+      - no-new-privileges:true
+    # Read-only root filesystem; Python/OS only need /tmp and /run writable
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
     env_file: .env
     volumes:
-      # Mount D-Bus so nmcli can talk to the host's NetworkManager
+      # D-Bus socket (read-only) so nmcli can talk to the host's NetworkManager
       - /run/dbus/system_bus_socket:/host/run/dbus/system_bus_socket:ro
-      # Mount NetworkManager config from the host
+      # NetworkManager config from the host (read-only)
       - /etc/NetworkManager:/etc/NetworkManager:ro
     environment:
       - USE_SUDO=false
