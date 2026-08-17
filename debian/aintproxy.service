@@ -1,0 +1,19 @@
+[Unit]
+Description=AintProxy — Huawei modem IP rotator
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/aintproxy serve
+EnvironmentFile=-/etc/aintproxy/config.yaml
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/aintproxy
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
+
+[Install]
+WantedBy=multi-user.target

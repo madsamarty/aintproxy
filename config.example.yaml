@@ -1,0 +1,28 @@
+# AintProxy configuration
+# Copy to /etc/aintproxy/config.yaml and edit.
+
+modem:
+  ip: "192.168.8.1"           # Huawei HiLink modem admin page IP
+  user: "admin"               # Modem admin username
+  password: ""                # REQUIRED — modem admin password
+  interface: "vodafone0"      # Network interface name for the modem
+
+network:
+  local_ip: ""                # Host IP on modem subnet for policy routing (empty to skip)
+  routing_table: "100"        # Routing table number for the modem default route
+  proxy_host: "127.0.0.1"     # Local HTTP proxy that routes traffic through modem
+  proxy_port: 3128
+  ip_check_url: "https://api.ipify.org"  # Endpoint to verify public IP
+  use_sudo: true              # Set false when running as root
+
+rotation:
+  mode: "reboot"              # "reboot" restarts modem; "toggle" flips mobile data
+  reboot_wait_seconds: 35     # Seconds to wait after modem reboot
+  toggle_wait_seconds: 35     # Seconds to wait while data is off
+  connect_attempts: 15        # How many times to poll for new IP
+  connect_retry_seconds: 3    # Seconds between polls
+
+server:
+  host: "0.0.0.0"            # HTTP service bind address
+  port: 5000                  # HTTP service port
+  auth_token: ""              # If set, /rotate requires X-Auth-Token header

@@ -1,0 +1,83 @@
+#!/bin/sh
+set -ex
+
+SRCDIR=$(pwd)
+PKGDIR=${SRCDIR}/debian/tmp/aintproxy
+
+case "$1" in
+  clean)
+    rm -f ${SRCDIR}/debian/aintproxy-bin
+    rm -rf ${SRCDIR}/debian/tmp
+    ;;
+
+  build)
+    mkdir -p ${SRCDIR}/.go
+    GOPATH=${SRCDIR}/.go go build -o ${SRCDIR}/debian/aintproxy-bin .
+    ;;
+
+  install)
+    rm -rf ${PKGDIR}
+    mkdir -p ${PKGDIR}/usr/bin
+    mkdir -p ${PKGDIR}/etc/aintproxy
+    mkdir -p ${PKGDIR}/lib/systemd/system
+    mkdir -p ${PKGDIR}/DEBIAN
+
+    install -m 755 ${SRCDIR}/debian/aintproxy-bin ${PKGDIR}/usr/bin/aintproxy
+    install -m 644 ${SRCDIR}/config.example.yaml ${PKGDIR}/etc/aintproxy/config.yaml
+    install -m 644 ${SRCDIR}/debian/aintproxy.service ${PKGDIR}/lib/systemd/system/aintproxy.service
+
+    cat > ${PKGDIR}/DEBIAN/control <<EOF
+Package: aintproxy
+Version: 0.1.0
+Section: net
+Priority: optional
+Architecture: amd64
+Maintainer: Mohamed Sameh <mohamed.sameh@example.com>
+Recommends: sudo
+Description: Huawei modem IP rotator
+ AintProxy forces a new public IP address by rebooting or toggling a
+ Huawei 4G/5G modem via the HiLink web API. It handles Linux routing
+ (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
+ .
+ Built for CGNAT environments where the ISP hands out fresh IPs on
+ modem reconnect.
+EOF
+
+    cat > ${PKGDIR}/DEBIAN/postinst <<'SCRIPT'
+#!/bin/sh
+set -e
+if [ "$1" = "configure" ]; then
+    if ! id -u aintproxy >/dev/null 2>&1; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin aintproxy || true
+    fi
+    chown root:aintproxy /etc/aintproxy/config.yaml || true
+    chmod 640 /etc/aintproxy/config.yaml || true
+    systemctl daemon-reload || true
+    systemctl enable aintproxy.service || true
+fi
+SCRIPT
+    chmod 0755 ${PKGDIR}/DEBIAN/postinst
+
+    cat > ${PKGDIR}/DEBIAN/postrm <<'SCRIPT'
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+    systemctl stop aintproxy.service 2>/dev/null || true
+    systemctl disable aintproxy.service 2>/dev/null || true
+    systemctl daemon-reload || true
+    userdel aintproxy 2>/dev/null || true
+fi
+SCRIPT
+    chmod 0755 ${PKGDIR}/DEBIAN/postrm
+    ;;
+
+  binary)
+    $0 install
+    dpkg-deb --build ${PKGDIR} ${SRCDIR}/../
+    ;;
+
+  *)
+    echo "Usage: $0 {clean|build|install|binary}" >&2
+    exit 1
+    ;;
+esac

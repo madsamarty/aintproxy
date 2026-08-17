@@ -1,0 +1,19 @@
+Source: aintproxy
+Section: net
+Priority: optional
+Maintainer: Mohamed Sameh <mohamed.sameh@example.com>
+Build-Depends: dpkg-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/mohamed-sameh/aintproxy
+
+Package: aintproxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: sudo
+Description: Huawei modem IP rotator
+ AintProxy forces a new public IP address by rebooting or toggling a
+ Huawei 4G/5G modem via the HiLink web API. It handles Linux routing
+ (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
+ .
+ Built for CGNAT environments where the ISP hands out fresh IPs on
+ modem reconnect.

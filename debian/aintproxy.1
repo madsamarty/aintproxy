@@ -1,0 +1,118 @@
+.\" AintProxy man page
+.TH AINTPROXY 1 "August 2026" "aintproxy 0.1.0" "User Commands"
+.SH NAME
+aintproxy \- Huawei modem IP rotator
+.SH SYNOPSIS
+.B aintproxy
+[\fB\-\-config\fR \fIPATH\fR]
+.I command
+.SH DESCRIPTION
+.B AintProxy
+forces a new public IP address by rebooting or toggling a Huawei 4G/5G modem
+via the HiLink web API. It handles Linux routing and exposes rotation as a
+CLI tool or HTTP endpoint.
+.PP
+Built for CGNAT environments where the ISP hands out fresh IPs on modem
+reconnect.
+.SH COMMANDS
+.TP
+.B rotate
+Run a single IP rotation and print old/new IPs.
+.TP
+.B serve
+Start the HTTP rotation service (foreground).
+.TP
+.B reboot
+Reboot the Huawei modem.
+.TP
+.B toggle
+Toggle the modem mobile data off/on.
+.TP
+.B version
+Print version and exit.
+.SH OPTIONS
+.TP
+.BI \-\-config " PATH"
+Path to configuration file (default: /etc/aintproxy/config.yaml).
+.SH CONFIGURATION
+Configuration is read from a YAML file. See
+.B /etc/aintproxy/config.yaml
+for the default configuration and
+.B config.example.yaml
+for all available options.
+.PP
+The configuration file search order is:
+.RS 4
+.IP 1. 4
+.BI \-\-config " PATH"
+command-line argument
+.IP 2. 4
+.I /etc/aintproxy/config.yaml
+.IP 3. 4
+.I ./.env
+(legacy fallback)
+.RE
+.PP
+Real environment variables always take precedence over the file.
+.SH HTTP API
+When running in
+.B serve
+mode, the following endpoints are available:
+.TP
+.B POST /rotate
+Trigger an IP rotation. Returns JSON with old_ip, new_ip, and rotated fields.
+.TP
+.B GET /health
+Health check endpoint. Returns {"status": "ok"}.
+.PP
+If
+.B auth_token
+is set in the configuration, the
+.B X-Auth-Token
+header is required for the /rotate endpoint.
+.SH FILES
+.TP
+.I /etc/aintproxy/config.yaml
+Configuration file.
+.TP
+.I /lib/systemd/system/aintproxy.service
+Systemd service unit.
+.SH EXAMPLES
+.PP
+Rotate the IP once:
+.RS 4
+.B aintproxy rotate
+.RE
+.PP
+Start the HTTP service:
+.RS 4
+.B aintproxy serve
+.RE
+.PP
+Trigger rotation via HTTP:
+.RS 4
+.B curl -X POST http://127.0.0.1:5000/rotate
+.RE
+.PP
+Use a custom config:
+.RS 4
+.B aintproxy --config /path/to/config.yaml rotate
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Runtime error.
+.TP
+.B 2
+Configuration error.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR ip (8),
+.BR sysctl (8)
+.SH AUTHOR
+Mohamed Sameh
+.SH LICENSE
+MIT

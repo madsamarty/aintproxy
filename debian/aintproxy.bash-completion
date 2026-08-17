@@ -1,0 +1,22 @@
+_aintproxy_completions() {
+    local cur prev commands
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    commands="rotate serve reboot toggle version"
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "--config --help" -- ${cur}) )
+        return 0
+    fi
+
+    if [[ ${prev} == "--config" ]] ; then
+        COMPREPLY=( $(compgen -f -- ${cur}) )
+        return 0
+    fi
+
+    COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
+    return 0
+}
+
+complete -F _aintproxy_completions aintproxy

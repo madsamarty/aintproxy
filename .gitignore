@@ -1,24 +1,30 @@
-# --- Secrets ----------------------------------------------------------------
-# Never commit real credentials.
-.env
+# Binaries
+aintproxy
 
-# --- Python -----------------------------------------------------------------
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
-build/
+# Test binaries
+*.test
+
+# Coverage
+*.out
+coverage.html
+
+# Build
 dist/
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+build/
 
-# --- Editors / OS -----------------------------------------------------------
+# IDE
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+
+# Go
+vendor/
+.go/
+
+# Python
+.venv/

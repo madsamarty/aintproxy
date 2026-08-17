@@ -1,0 +1,34 @@
+#compdef aintproxy
+
+_aintproxy() {
+    local -a commands
+    commands=(
+        'rotate:Run a single IP rotation'
+        'serve:Start the HTTP rotation service'
+        'reboot:Reboot the Huawei modem'
+        'toggle:Toggle modem mobile data'
+        'version:Print version'
+    )
+
+    _arguments -C \
+        '--config[Path to config file]:config file:_files' \
+        '--help[Show help]' \
+        '1:command:->cmd' \
+        '*::arg:->args'
+
+    case $state in
+        cmd)
+            _describe 'command' commands
+            ;;
+        args)
+            case $words[1] in
+                serve)
+                    ;;
+                *)
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_aintproxy "$@"
