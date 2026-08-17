@@ -34,6 +34,7 @@ func init() {
 		Description: "Huawei HiLink gateways (B525, B535, E5172, and similar)",
 		Status:      "supported",
 		Detect:      detect,
+		DetectModel: detectModel,
 		New:         func(ip, user, pass string) modem.Modem { return New(ip, user, pass) },
 	})
 }
@@ -48,6 +49,34 @@ func detect(ip, user, pass string) bool {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	return sesRe.Match(body) && tokRe.Match(body)
+}
+
+// detectModel probes the modem for device information and returns the model name.
+func detectModel(ip string) (bool, string) {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + ip + "/api/device/basic_information")
+	if err != nil {
+		return false, ""
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	if !strings.Contains(bodyStr, "<response>") {
+		return false, ""
+	}
+	model := extractXMLTag(bodyStr, "devicename")
+	if model == "" {
+		model = extractXMLTag(bodyStr, "spreadname_en")
+	}
+	return true, model
+}
+
+func extractXMLTag(xmlStr, tag string) string {
+	re := regexp.MustCompile(`<` + tag + `>(.*?)</` + tag + `>`)
+	if match := re.FindStringSubmatch(xmlStr); len(match) > 1 {
+		return strings.TrimSpace(match[1])
+	}
+	return ""
 }
 
 type Modem struct {

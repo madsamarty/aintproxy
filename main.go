@@ -17,6 +17,8 @@ import (
 	"github.com/mohamed-sameh/aintproxy/internal/server"
 
 	_ "github.com/mohamed-sameh/aintproxy/internal/huawei"
+	_ "github.com/mohamed-sameh/aintproxy/internal/tplink"
+	_ "github.com/mohamed-sameh/aintproxy/internal/zte"
 )
 
 const version = "0.1.0"
@@ -165,10 +167,16 @@ func runDevices() {
 		return
 	}
 
-	fmt.Printf("%-15s %-10s %-15s %s\n", "DEVICE", "TYPE", "STATE", "CONNECTION")
-	fmt.Printf("%-15s %-10s %-15s %s\n", "------", "----", "-----", "----------")
+	devices.EnrichWithModemInfo(devs, runCmd)
+
+	fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "DEVICE", "TYPE", "STATE", "MODEM MODEL", "CONNECTION")
+	fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "------", "----", "-----", "-----------", "----------")
 	for _, d := range devs {
-		fmt.Printf("%-15s %-10s %-15s %s\n", d.Interface, d.Type, d.State, d.Connection)
+		model := d.ModemModel
+		if model == "" {
+			model = "-"
+		}
+		fmt.Printf("%-15s %-10s %-15s %-20s %s\n", d.Interface, d.Type, d.State, model, d.Connection)
 	}
 }
 
