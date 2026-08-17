@@ -28,10 +28,10 @@ Scraper / app ──POST /rotate──▶ aintproxy (HTTP service :5000)
                                      ISP CGNAT ──▶ new public IP
 ```
 
-A flip runs these steps:
+A rotation runs these steps:
 
 1. Read the current public IP through your local proxy.
-2. **Toggle mobile data** off/on (default) *or* **reboot the modem**.
+2. **Toggle mobile data** off/on (`rotate`) or **reboot the modem** (`hard-rotate`).
 3. Reconnect the network interface and re-apply the policy routing rules.
 4. Poll until a new public IP appears (or fail after a timeout).
 
@@ -42,7 +42,7 @@ A flip runs these steps:
   `aintproxy drivers` to see supported models.
 - Root (or passwordless `sudo`) for the networking commands.
 - A local HTTP proxy (squid, tinyproxy, ...) that routes traffic out through the
-  modem. The flip verifies the new IP through this proxy.
+  modem. The rotation verifies the new IP through this proxy.
 - An ISP that actually hands out fresh IPs on reconnect (works with CGNAT).
 
 ## Installation
@@ -55,8 +55,7 @@ cd aintproxy
 
 go build -o aintproxy .
 sudo install -D -m 755 aintproxy /usr/bin/aintproxy
-sudo install -D -m 644 config.example.yaml /etc/aintproxy/config.yaml
-sudo chmod 600 /etc/aintproxy/config.yaml
+sudo aintproxy config
 ```
 
 ### Debian package (Ubuntu/Debian)
@@ -74,7 +73,13 @@ sudo dpkg -i ../aintproxy_0.1.0-1_*.deb
 
 ## Configuration
 
-Edit `/etc/aintproxy/config.yaml`:
+Install the default config:
+
+```bash
+sudo aintproxy config
+```
+
+Then edit `/etc/aintproxy/config.yaml`:
 
 ```yaml
 modem:
@@ -92,10 +97,10 @@ network:
   use_sudo: true
 
 rotation:
-  reboot_wait: 35
-  data_off_wait: 35
-  ip_check_attempts: 15
-  ip_check_interval: 3
+  reboot_wait: 35                   # hard-rotate: seconds to wait after modem reboot
+  data_off_wait: 35                 # rotate: seconds to wait while data is off
+  ip_check_attempts: 15             # both: how many times to poll for new IP
+  ip_check_interval: 3              # both: seconds between polls
 
 server:
   host: "0.0.0.0"
@@ -103,18 +108,20 @@ server:
   auth_token: ""                     # optional
 ```
 
-See `config.example.yaml` for all options.
-
 ## Usage
 
 ### CLI
 
 ```bash
-aintproxy rotate              # one flip, prints old + new IP
-aintproxy hard-rotate         # full hardware modem reboot on all interfaces
-aintproxy serve               # start the HTTP service (foreground)
-aintproxy drivers             # list supported modem drivers
-aintproxy version             # print version
+aintproxy config                   # install default config
+aintproxy rotate                   # toggle mobile data, prints old + new IP
+aintproxy hard-rotate              # full hardware modem reboot
+aintproxy serve                    # start the HTTP service (foreground)
+aintproxy info                     # show current IP, interface, modem status
+aintproxy devices                  # list all network devices
+aintproxy drivers                  # list supported modem drivers
+aintproxy help                     # show help
+aintproxy version                  # print version
 
 aintproxy --config /path/to/config.yaml rotate   # custom config
 ```
@@ -127,7 +134,7 @@ aintproxy serve &
 # Health check
 curl http://127.0.0.1:5000/health
 
-# Trigger a flip
+# Trigger a rotation
 curl -X POST http://127.0.0.1:5000/rotate
 # => {"old_ip":"100.64.1.1","new_ip":"100.64.9.8","rotated":true}
 
