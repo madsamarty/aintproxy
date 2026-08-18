@@ -31,6 +31,7 @@ type NetworkConfig struct {
 	ProxyPort      int    `yaml:"proxy_port"`
 	IPCheckURL     string `yaml:"ip_check_url"`
 	UseSudo        bool   `yaml:"use_sudo"`
+	RouteMetric    int    `yaml:"route_metric"`
 }
 
 type RotationConfig struct {
@@ -38,6 +39,7 @@ type RotationConfig struct {
 	ToggleWait      int `yaml:"data_off_wait"`
 	IPCheckAttempts int `yaml:"ip_check_attempts"`
 	IPCheckInterval int `yaml:"ip_check_interval"`
+	Cooldown        int `yaml:"cooldown"`
 }
 
 type ServerConfig struct {
@@ -62,12 +64,14 @@ func defaults() *Config {
 			ProxyPort:      3128,
 			IPCheckURL:     "https://api.ipify.org",
 			UseSudo:        true,
+			RouteMetric:    9000,
 		},
 		Rotation: RotationConfig{
 			RebootWait:      35,
 			ToggleWait:      35,
 			IPCheckAttempts: 15,
 			IPCheckInterval: 3,
+			Cooldown:        120,
 		},
 		Server: ServerConfig{
 			Host:     "0.0.0.0",
@@ -134,6 +138,10 @@ func (c *Config) validate() error {
 
 	if c.Rotation.IPCheckInterval < 0 {
 		return fmt.Errorf("rotation.ip_check_interval: must be >= 0, got %d", c.Rotation.IPCheckInterval)
+	}
+
+	if c.Rotation.Cooldown < 0 {
+		return fmt.Errorf("rotation.cooldown: must be >= 0, got %d", c.Rotation.Cooldown)
 	}
 
 	if c.Network.LocalIP != "" && net.ParseIP(c.Network.LocalIP) == nil {

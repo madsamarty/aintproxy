@@ -60,6 +60,9 @@ func testRotator(cfg *config.Config, m modem.Modem) *Rotator {
 		Logger: testLogger(),
 	}
 	r.RunCmd = func(name string, args ...string) ([]byte, error) {
+		if name == "ip" && len(args) >= 3 && args[0] == "-4" && args[1] == "addr" {
+			return []byte("inet 192.168.8.100/24 brd 192.168.8.255 scope global vodafone0"), nil
+		}
 		return []byte(""), nil
 	}
 	return r

@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
@@ -24,12 +26,14 @@ func (e *RotationError) Error() string {
 	return e.Msg
 }
 
+const lastRotationFile = "/var/lib/aintproxy/.last_rotation"
+
 type Rotator struct {
-	Config    *config.Config
-	Modem     modem.Modem
-	Logger    *slog.Logger
-	DryRun    bool
-	RunCmd    func(name string, args ...string) ([]byte, error)
+	Config      *config.Config
+	Modem       modem.Modem
+	Logger      *slog.Logger
+	DryRun      bool
+	RunCmd      func(name string, args ...string) ([]byte, error)
 	CurrentIPIs func() (string, error)
 }
 
@@ -133,7 +137,19 @@ func (r *Rotator) ToggleMobileData() error {
 	r.Logger.Info("Waiting for ISP to release lease", "seconds", r.Config.Rotation.ToggleWait)
 	time.Sleep(time.Duration(r.Config.Rotation.ToggleWait) * time.Second)
 	r.Logger.Info("Enabling mobile data...")
-	return r.Modem.SetMobileData(true)
+	if err := r.Modem.SetMobileData(true); err != nil {
+		r.Logger.Warn("Mobile data re-enable failed, retrying recovery...", "error", err)
+		for i := 1; i <= 5; i++ {
+			time.Sleep(15 * time.Second)
+			r.Logger.Info("Recovery attempt", "attempt", i, "max", 5)
+			if err := r.Modem.SetMobileData(true); err == nil {
+				r.Logger.Info("Mobile data re-enabled successfully")
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to re-enable mobile data after rotation: modem may need manual intervention")
+	}
+	return nil
 }
 
 func (r *Rotator) ReconnectInterface() error {
@@ -142,11 +158,43 @@ func (r *Rotator) ReconnectInterface() error {
 	if err != nil {
 		return &RotationError{Msg: fmt.Sprintf("reconnect interface: %v", err)}
 	}
-	time.Sleep(5 * time.Second)
-	return nil
+
+	for attempt := 1; attempt <= r.Config.Rotation.IPCheckAttempts; attempt++ {
+		if r.interfaceHasIP() {
+			r.Logger.Info("Interface has IP", "interface", r.Config.Modem.Interface)
+			r.setHighMetric()
+			return nil
+		}
+		r.Logger.Info("Waiting for interface IP...", "attempt", attempt, "max", r.Config.Rotation.IPCheckAttempts)
+		time.Sleep(time.Duration(r.Config.Rotation.IPCheckInterval) * time.Second)
+	}
+
+	return &RotationError{Msg: fmt.Sprintf("interface %s has no IP after reconnect", r.Config.Modem.Interface)}
+}
+
+func (r *Rotator) interfaceHasIP() bool {
+	out, err := r.RunCmd("ip", "-4", "addr", "show", "dev", r.Config.Modem.Interface)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "inet ")
+}
+
+func (r *Rotator) setHighMetric() {
+	r.Logger.Info("Setting high metric on interface to avoid stealing default route",
+		"interface", r.Config.Modem.Interface, "metric", r.Config.Network.RouteMetric)
+	r.RunCmd("ip", "route", "replace", "default",
+		"via", r.Config.Modem.IP,
+		"dev", r.Config.Modem.Interface,
+		"metric", fmt.Sprintf("%d", r.Config.Network.RouteMetric))
 }
 
 func (r *Rotator) ApplyRouting() error {
+	if !r.interfaceHasIP() {
+		r.Logger.Warn("Skipping routing: interface has no IP", "interface", r.Config.Modem.Interface)
+		return &RotationError{Msg: fmt.Sprintf("interface %s has no IP, skipping routing to protect network", r.Config.Modem.Interface)}
+	}
+
 	r.Logger.Info("Applying routing rules")
 
 	r.RunCmd("sysctl", "-w",
@@ -158,6 +206,10 @@ func (r *Rotator) ApplyRouting() error {
 		"table", r.Config.Network.RoutingTable)
 
 	if r.Config.Network.LocalIP != "" {
+		r.RunCmd("ip", "rule", "del",
+			"from", r.Config.Network.LocalIP,
+			"lookup", r.Config.Network.RoutingTable)
+
 		r.RunCmd("ip", "rule", "add",
 			"from", r.Config.Network.LocalIP,
 			"lookup", r.Config.Network.RoutingTable)
@@ -180,8 +232,73 @@ func (r *Rotator) WaitForIP() (string, error) {
 	return "", &RotationError{Msg: "timed out waiting for a new public IP"}
 }
 
+func (r *Rotator) checkCooldown() error {
+	if r.Config.Rotation.Cooldown <= 0 {
+		return nil
+	}
+	data, err := os.ReadFile(lastRotationFile)
+	if err != nil {
+		return nil
+	}
+	var last time.Time
+	if err := last.UnmarshalText(data); err != nil {
+		return nil
+	}
+	remaining := time.Duration(r.Config.Rotation.Cooldown)*time.Second - time.Since(last)
+	if remaining > 0 {
+		return &RotationError{Msg: fmt.Sprintf("cooldown active, try again in %s", remaining.Round(time.Second))}
+	}
+	return nil
+}
+
+func (r *Rotator) recordRotation() {
+	os.MkdirAll("/var/lib/aintproxy", 0755)
+	ts, _ := time.Now().Truncate(time.Microsecond).MarshalText()
+	os.WriteFile(lastRotationFile, ts, 0644)
+}
+
+func (r *Rotator) OnInterrupt() {
+	r.Logger.Warn("Interrupted — re-enabling mobile data to avoid modem hang...")
+	type singleShot interface {
+		SetMobileDataOnce(enabled bool) error
+	}
+	if ss, ok := r.Modem.(singleShot); ok {
+		if err := ss.SetMobileDataOnce(true); err != nil {
+			r.Logger.Warn("Interrupt re-enable failed (non-critical), modem may need manual reset", "error", err)
+		} else {
+			r.Logger.Info("Mobile data re-enabled successfully")
+		}
+	} else {
+		if err := r.Modem.SetMobileData(true); err != nil {
+			r.Logger.Warn("Interrupt re-enable failed (non-critical), modem may need manual reset", "error", err)
+		} else {
+			r.Logger.Info("Mobile data re-enabled successfully")
+		}
+	}
+	r.recordRotation()
+	os.Exit(1)
+}
+
+func (r *Rotator) WatchSignals() func() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ch:
+			r.OnInterrupt()
+		case <-done:
+		}
+	}()
+	return func() { close(done); signal.Stop(ch) }
+}
+
 // Rotate performs a fast software-level IP lease drop by toggling mobile data off/on.
 func (r *Rotator) Rotate() (string, string, error) {
+	if err := r.checkCooldown(); err != nil {
+		return "", "", err
+	}
+
 	oldIP, _ := r.CurrentIP()
 	r.Logger.Info("Current IP", "ip", oldIP)
 
@@ -207,12 +324,17 @@ func (r *Rotator) Rotate() (string, string, error) {
 	if err != nil {
 		return oldIP, "", err
 	}
+	r.recordRotation()
 	r.Logger.Info("New IP", "ip", newIP)
 	return oldIP, newIP, nil
 }
 
 // RotateReboot performs a full hardware modem reboot to force a new IP lease.
 func (r *Rotator) RotateReboot() (string, string, error) {
+	if err := r.checkCooldown(); err != nil {
+		return "", "", err
+	}
+
 	oldIP, _ := r.CurrentIP()
 	r.Logger.Info("Current IP", "ip", oldIP)
 
@@ -241,6 +363,7 @@ func (r *Rotator) RotateReboot() (string, string, error) {
 	if err != nil {
 		return oldIP, "", err
 	}
+	r.recordRotation()
 	r.Logger.Info("New IP", "ip", newIP)
 	return oldIP, newIP, nil
 }

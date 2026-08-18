@@ -95,12 +95,14 @@ network:
   proxy_port: 3128
   ip_check_url: "https://api.ipify.org"
   use_sudo: true
+  route_metric: 9000                # higher = lower priority (protects other interfaces)
 
 rotation:
   reboot_wait: 35                   # hard-rotate: seconds to wait after modem reboot
   data_off_wait: 35                 # rotate: seconds to wait while data is off
   ip_check_attempts: 15             # both: how many times to poll for new IP
   ip_check_interval: 3              # both: seconds between polls
+  cooldown: 120                     # minimum seconds between rotations (prevents 125003 errors)
 
 server:
   host: "0.0.0.0"
@@ -117,6 +119,7 @@ server:
 aintproxy config                   # install default config
 aintproxy rotate                   # toggle mobile data, prints old + new IP
 aintproxy hard-rotate              # full hardware modem reboot
+aintproxy fix                      # force re-enable mobile data (safe if already working)
 aintproxy serve                    # start the HTTP service (foreground)
 aintproxy info                     # show current IP, interface, modem status
 aintproxy devices                  # list all network devices
@@ -212,6 +215,9 @@ go vet ./...
   Wait longer between flips or try `hard-rotate` for a full modem reboot.
 - **Rate limited** -- the server enforces a 30-second cooldown between rotations.
   Wait before retrying.
+- **Modem stuck after Ctrl+C** -- run `aintproxy fix` to re-enable mobile data.
+- **Other interfaces lost internet** -- increase `route_metric` (default 9000)
+  so the modem route has lower priority than your main interface.
 
 ## License
 

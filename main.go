@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -83,8 +84,14 @@ func main() {
 	rot.DryRun = *dryRun
 
 	switch cmd {
+	case "fix":
+		runFix(cfg, logger, *jsonOutput)
+		return
+
 	case "rotate":
+		stop := rot.WatchSignals()
 		oldIP, newIP, err := rot.Rotate()
+		stop()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -105,7 +112,9 @@ func main() {
 		}
 
 	case "hard-rotate":
+		stop := rot.WatchSignals()
 		results, err := rot.HardRotate()
+		stop()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -315,6 +324,7 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintproxy/config.yaml\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
 	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all interfaces\n")
+	fmt.Fprintf(os.Stderr, "  fix          Force re-enable mobile data and reconnect interface\n")
 	fmt.Fprintf(os.Stderr, "  devices      List all network devices and their status\n")
 	fmt.Fprintf(os.Stderr, "  drivers      List supported modem drivers\n")
 	fmt.Fprintf(os.Stderr, "  info         Show current IP, interface, and modem status\n")
@@ -333,4 +343,54 @@ func orUnknown(s string) string {
 		return "unknown"
 	}
 	return s
+}
+
+func runFix(cfg *config.Config, logger *slog.Logger, jsonOutput bool) {
+	type singleShot interface {
+		SetMobileDataOnce(enabled bool) error
+	}
+
+	m, driverName, err := modem.Detect(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Modem error: %v\n", err)
+		os.Exit(1)
+	}
+	logger.Info("Detected modem", "driver", driverName)
+
+	out, _ := exec.Command("sudo", "ip", "-4", "addr", "show", "dev", cfg.Modem.Interface).CombinedOutput()
+	hasIP := strings.Contains(string(out), "inet ")
+
+	if hasIP {
+		fmt.Printf("Interface %s already has an IP — skipping.\n", cfg.Modem.Interface)
+		return
+	}
+
+	fmt.Println("Interface has no IP — enabling mobile data...")
+	var enableErr error
+	if ss, ok := m.(singleShot); ok {
+		enableErr = ss.SetMobileDataOnce(true)
+	} else {
+		enableErr = m.SetMobileData(true)
+	}
+	if enableErr != nil {
+		fmt.Fprintf(os.Stderr, "Failed to enable mobile data: %v\n", enableErr)
+		os.Exit(1)
+	}
+	fmt.Println("Mobile data enabled.")
+
+	fmt.Println("Reconnecting interface...")
+	out, err = exec.Command("sudo", "nmcli", "device", "connect", cfg.Modem.Interface).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Reconnect failed: %s\n", string(out))
+		os.Exit(1)
+	}
+
+	fmt.Println("Waiting for IP...")
+	time.Sleep(5 * time.Second)
+	out, _ = exec.Command("sudo", "ip", "-4", "addr", "show", "dev", cfg.Modem.Interface).CombinedOutput()
+	if strings.Contains(string(out), "inet ") {
+		fmt.Println("Interface is up with IP.")
+	} else {
+		fmt.Println("Interface connected but no IP yet — may need a moment.")
+	}
 }

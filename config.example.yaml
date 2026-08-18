@@ -14,12 +14,14 @@ network:
   proxy_port: 3128
   ip_check_url: "https://api.ipify.org"  # Endpoint to verify public IP
   use_sudo: true              # Set false when running as root
+  route_metric: 9000          # Metric for modem route (higher = lower priority, protects other interfaces)
 
 rotation:
   reboot_wait: 35              # hard-rotate: seconds to wait after modem reboot
   data_off_wait: 35            # rotate: seconds to wait while data is off
   ip_check_attempts: 15        # both: how many times to poll for new IP
   ip_check_interval: 3         # both: seconds between polls
+  cooldown: 120                # minimum seconds between rotations (prevents 125003 errors)
 
 server:
   host: "0.0.0.0"             # HTTP service bind address

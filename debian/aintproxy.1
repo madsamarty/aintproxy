@@ -24,6 +24,11 @@ Run a single IP rotation and print old/new IPs.
 .B hard-rotate
 Full hardware modem reboot/reset on all interfaces.
 .TP
+.B fix
+Force re-enable mobile data and reconnect the interface.
+Skips if the interface already has an IP. Useful after a
+cancelled rotation or Ctrl+C left the modem with data off.
+.TP
 .B serve
 Start the HTTP rotation service (foreground).
 .TP
@@ -81,6 +86,11 @@ Systemd service unit.
 Rotate the IP once:
 .RS 4
 .B aintproxy rotate
+.RE
+.PP
+Re-enable mobile data after a failed rotation:
+.RS 4
+.B aintproxy fix
 .RE
 .PP
 Start the HTTP service:

@@ -166,8 +166,75 @@ func (m *Modem) Reboot() error {
 }
 
 func (m *Modem) SetMobileData(enabled bool) error {
+	action := "disable"
+	if enabled {
+		action = "enable"
+	}
+
+	for attempt := 1; attempt <= 6; attempt++ {
+		m.cookie = ""
+		m.token = ""
+
+		if err := m.waitForModem(time.Duration(attempt*15) * time.Second); err != nil {
+			if attempt < 6 {
+				continue
+			}
+			return &ModemError{Op: "set_mobile_data " + action, Msg: err.Error()}
+		}
+
+		if err := m.Login(); err != nil {
+			if attempt < 6 {
+				continue
+			}
+			return &ModemError{Op: "set_mobile_data " + action, Msg: err.Error()}
+		}
+
+		val := "0"
+		if enabled {
+			val = "1"
+		}
+		payload := fmt.Sprintf("<request><dataswitch>%s</dataswitch></request>", val)
+		resp, err := m.post("/api/dialup/mobile-dataswitch", payload)
+		if err != nil {
+			if attempt < 6 {
+				continue
+			}
+			return &ModemError{Op: "set_mobile_data " + action, Msg: err.Error()}
+		}
+		if !isOK(resp) {
+			if attempt < 6 {
+				continue
+			}
+			return &ModemError{Op: "set_mobile_data " + action, Msg: resp}
+		}
+		return nil
+	}
+	return &ModemError{Op: "set_mobile_data " + action, Msg: "all retries exhausted"}
+}
+
+func (m *Modem) waitForModem(timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Get(m.BaseURL + "/api/webserver/SesTokInfo")
+		if err == nil {
+			resp.Body.Close()
+			return nil
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("modem not responding after %v", timeout)
+}
+
+func (m *Modem) SetMobileDataOnce(enabled bool) error {
+	action := "disable"
+	if enabled {
+		action = "enable"
+	}
+	m.cookie = ""
+	m.token = ""
 	if err := m.Login(); err != nil {
-		return err
+		return &ModemError{Op: "set_mobile_data_once " + action, Msg: err.Error()}
 	}
 	val := "0"
 	if enabled {
@@ -176,18 +243,10 @@ func (m *Modem) SetMobileData(enabled bool) error {
 	payload := fmt.Sprintf("<request><dataswitch>%s</dataswitch></request>", val)
 	resp, err := m.post("/api/dialup/mobile-dataswitch", payload)
 	if err != nil {
-		action := "disable"
-		if enabled {
-			action = "enable"
-		}
-		return &ModemError{Op: "set_mobile_data " + action, Msg: err.Error()}
+		return &ModemError{Op: "set_mobile_data_once " + action, Msg: err.Error()}
 	}
 	if !isOK(resp) {
-		action := "disable"
-		if enabled {
-			action = "enable"
-		}
-		return &ModemError{Op: "set_mobile_data " + action, Msg: resp}
+		return &ModemError{Op: "set_mobile_data_once " + action, Msg: resp}
 	}
 	return nil
 }
