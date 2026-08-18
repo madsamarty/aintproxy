@@ -4,8 +4,8 @@ Flip your public IP address by rotating the IP on a 4G/5G modem.
 
 Most consumer 4G/5G connections sit behind ISP **CGNAT**, so your public IP is
 only stable for as long as the modem holds its PPP session. By dropping that
-session (mobile-data toggle, or a modem reboot) you force the ISP to hand out a new
-IP. This project automates that whole dance and exposes it as a one-shot CLI
+session (mobile-data toggle, or a modem reboot) you force the ISP to hand out a
+new IP. This project automates that whole dance and exposes it as a one-shot CLI
 command or a tiny HTTP endpoint.
 
 Currently supported: Huawei HiLink gateways (B525, B535, E5172 and similar).
@@ -68,7 +68,7 @@ sudo apt install debhelper golang-any
 dpkg-buildpackage -b -uc
 
 # Install
-sudo dpkg -i ../aintproxy_0.1.0-1_*.deb
+sudo dpkg -i ../aintproxy_0.2.0-1_*.deb
 ```
 
 ## Configuration
@@ -106,6 +106,7 @@ server:
   host: "0.0.0.0"
   port: 5000
   auth_token: ""                     # optional
+  log_level: "info"                  # debug, info, warn, error
 ```
 
 ## Usage
@@ -124,6 +125,11 @@ aintproxy help                     # show help
 aintproxy version                  # print version
 
 aintproxy --config /path/to/config.yaml rotate   # custom config
+aintproxy --json rotate                          # JSON output
+aintproxy --dry-run rotate                       # simulate without toggling
+aintproxy --json info                            # JSON output for info
+aintproxy --json devices                         # JSON output for devices
+aintproxy --json drivers                         # JSON output for drivers
 ```
 
 ### HTTP API
@@ -131,12 +137,24 @@ aintproxy --config /path/to/config.yaml rotate   # custom config
 ```bash
 aintproxy serve &
 
-# Health check
+# Health check (includes uptime, current IP, driver info)
 curl http://127.0.0.1:5000/health
 
-# Trigger a rotation
+# Trigger a rotation (rate-limited to once per 30s)
 curl -X POST http://127.0.0.1:5000/rotate
 # => {"old_ip":"100.64.1.1","new_ip":"100.64.9.8","rotated":true}
+
+# Trigger a hard rotation (full modem reboot)
+curl -X POST http://127.0.0.1:5000/hard-rotate
+
+# Get current status (requires auth if configured)
+curl http://127.0.0.1:5000/info
+
+# Get rotation history
+curl http://127.0.0.1:5000/history
+
+# Prometheus metrics
+curl http://127.0.0.1:5000/metrics
 
 # With auth token
 curl -X POST -H "X-Auth-Token: your-token" http://127.0.0.1:5000/rotate
@@ -192,6 +210,8 @@ go vet ./...
 - **Command failed** -- check the modem interface name and your `sudo` setup.
 - **Same IP every time** -- your ISP hands out the same address from a pool.
   Wait longer between flips or try `hard-rotate` for a full modem reboot.
+- **Rate limited** -- the server enforces a 30-second cooldown between rotations.
+  Wait before retrying.
 
 ## License
 

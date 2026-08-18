@@ -17,6 +17,9 @@ func TestDefaults(t *testing.T) {
 	if cfg.Network.ProxyPort != 3128 {
 		t.Errorf("proxy port = %d, want 3128", cfg.Network.ProxyPort)
 	}
+	if cfg.Server.LogLevel != "info" {
+		t.Errorf("log level = %q, want info", cfg.Server.LogLevel)
+	}
 }
 
 func TestLoadFromFile(t *testing.T) {
@@ -42,6 +45,7 @@ server:
   host: "127.0.0.1"
   port: 8000
   auth_token: "mytoken"
+  log_level: "debug"
 `
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
@@ -80,6 +84,9 @@ server:
 	}
 	if cfg.Server.AuthToken != "mytoken" {
 		t.Errorf("auth token = %q, want %q", cfg.Server.AuthToken, "mytoken")
+	}
+	if cfg.Server.LogLevel != "debug" {
+		t.Errorf("log level = %q, want debug", cfg.Server.LogLevel)
 	}
 }
 
@@ -139,5 +146,137 @@ func TestPartialConfigUsesDefaults(t *testing.T) {
 	}
 	if cfg.Server.Port != 5000 {
 		t.Errorf("server port should be default, got %d", cfg.Server.Port)
+	}
+}
+
+func TestInvalidModemIP(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "badip.yaml")
+	content := "modem:\n  password: secret\n  ip: not-an-ip\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid modem IP")
+	}
+}
+
+func TestInvalidProxyPort(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "badport.yaml")
+	content := "modem:\n  password: secret\nnetwork:\n  proxy_port: 99999\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid proxy port")
+	}
+}
+
+func TestInvalidServerPort(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "badport2.yaml")
+	content := "modem:\n  password: secret\nserver:\n  port: -1\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid server port")
+	}
+}
+
+func TestNegativeRebootWait(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "neg.yaml")
+	content := "modem:\n  password: secret\nrotation:\n  reboot_wait: -5\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for negative reboot_wait")
+	}
+}
+
+func TestNegativeToggleWait(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "neg2.yaml")
+	content := "modem:\n  password: secret\nrotation:\n  data_off_wait: -1\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for negative data_off_wait")
+	}
+}
+
+func TestZeroIPCheckAttempts(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "zero.yaml")
+	content := "modem:\n  password: secret\nrotation:\n  ip_check_attempts: 0\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for zero ip_check_attempts")
+	}
+}
+
+func TestInvalidLogLevel(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "loglevel.yaml")
+	content := "modem:\n  password: secret\nserver:\n  log_level: verbose\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid log_level")
+	}
+}
+
+func TestInvalidLocalIP(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lip.yaml")
+	content := "modem:\n  password: secret\nnetwork:\n  local_ip: not-an-ip\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid local_ip")
+	}
+}
+
+func TestInvalidProxyHost(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "phost.yaml")
+	content := "modem:\n  password: secret\nnetwork:\n  proxy_host: not-an-ip\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid proxy_host")
+	}
+}
+
+func TestValidLogLevels(t *testing.T) {
+	for _, level := range []string{"debug", "info", "warn", "error"} {
+		dir := t.TempDir()
+		path := filepath.Join(dir, level+".yaml")
+		content := "modem:\n  password: secret\nserver:\n  log_level: " + level + "\n"
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := Load(path)
+		if err != nil {
+			t.Errorf("log_level %q should be valid, got error: %v", level, err)
+		}
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/mohamed-sameh/aintproxy/internal/config"
 	"github.com/mohamed-sameh/aintproxy/internal/devices"
@@ -26,12 +28,12 @@ import (
 //go:embed config.example.yaml
 var defaultConfig []byte
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
 	configPath := flag.String("config", config.DefaultConfigPath, "path to config file")
+	jsonOutput := flag.Bool("json", false, "output in JSON format")
+	dryRun := flag.Bool("dry-run", false, "simulate rotation without toggling data")
 	flag.Usage = printUsage
 	flag.Parse()
 
@@ -52,11 +54,11 @@ func main() {
 		os.Exit(0)
 
 	case "devices":
-		runDevices()
+		runDevices(*jsonOutput)
 		return
 
 	case "drivers":
-		runDrivers()
+		runDrivers(*jsonOutput)
 		return
 
 	case "config":
@@ -70,11 +72,15 @@ func main() {
 		os.Exit(2)
 	}
 
+	logger := setupLogger(cfg.Server.LogLevel)
+
 	rot, err := rotation.New(cfg, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Modem error: %v\n", err)
 		os.Exit(2)
 	}
+
+	rot.DryRun = *dryRun
 
 	switch cmd {
 	case "rotate":
@@ -83,8 +89,20 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Old IP: %s\n", orUnknown(oldIP))
-		fmt.Printf("New IP: %s\n", newIP)
+		if *jsonOutput {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{
+				"old_ip":  orUnknown(oldIP),
+				"new_ip":  orUnknown(newIP),
+				"rotated": oldIP != newIP,
+				"dry_run": *dryRun,
+			})
+		} else {
+			fmt.Printf("Old IP: %s\n", orUnknown(oldIP))
+			fmt.Printf("New IP: %s\n", orUnknown(newIP))
+			if *dryRun {
+				fmt.Println("Dry run — no data was toggled")
+			}
+		}
 
 	case "hard-rotate":
 		results, err := rot.HardRotate()
@@ -92,11 +110,21 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		for _, r := range results {
-			if r.Err != nil {
-				fmt.Fprintf(os.Stderr, "[%s] Error: %v\n", r.Interface, r.Err)
-			} else {
-				fmt.Printf("[%s] Old IP: %s  New IP: %s\n", r.Interface, orUnknown(r.OldIP), r.NewIP)
+		if *jsonOutput {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{
+				"results": results,
+				"dry_run": *dryRun,
+			})
+		} else {
+			for _, r := range results {
+				if r.Err != nil {
+					fmt.Fprintf(os.Stderr, "[%s] Error: %v\n", r.Interface, r.Err)
+				} else {
+					fmt.Printf("[%s] Old IP: %s  New IP: %s\n", r.Interface, orUnknown(r.OldIP), r.NewIP)
+				}
+			}
+			if *dryRun {
+				fmt.Println("Dry run — no data was toggled")
 			}
 		}
 
@@ -106,18 +134,27 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-	fmt.Printf("Public IP:    %s\n", orUnknown(info.PublicIP))
-	fmt.Printf("Interface:    %s\n", info.Interface)
-	fmt.Printf("Modem IP:     %s\n", info.ModemIP)
-	fmt.Printf("Modem state:  %s\n", orUnknown(info.ModemState))
-	if info.InterfaceOK {
-			fmt.Printf("Status:       connected\n")
+		if *jsonOutput {
+			json.NewEncoder(os.Stdout).Encode(info)
 		} else {
-			fmt.Printf("Status:       disconnected\n")
+			fmt.Printf("Public IP:    %s\n", orUnknown(info.PublicIP))
+			fmt.Printf("Interface:    %s\n", info.Interface)
+			fmt.Printf("Modem IP:     %s\n", info.ModemIP)
+			fmt.Printf("Modem state:  %s\n", orUnknown(info.ModemState))
+			if info.InterfaceOK {
+				fmt.Printf("Status:       connected\n")
+			} else {
+				fmt.Printf("Status:       disconnected\n")
+			}
 		}
 
 	case "serve":
-		srv, err := server.New(cfg, logger)
+		var driverName string
+		_, detectedName, err := modem.Detect(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password)
+		if err == nil {
+			driverName = detectedName
+		}
+		srv, err := server.NewWithDriver(cfg, logger, driverName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			os.Exit(2)
@@ -130,7 +167,9 @@ func main() {
 		go func() {
 			<-ctx.Done()
 			logger.Info("Shutting down...")
-			srv.Shutdown(context.Background())
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			srv.Shutdown(shutdownCtx)
 		}()
 
 		if err := srv.Start(); err != nil && err != context.Canceled {
@@ -145,7 +184,24 @@ func main() {
 	}
 }
 
-func runDevices() {
+func setupLogger(level string) *slog.Logger {
+	var lvl slog.Level
+	switch level {
+	case "debug":
+		lvl = slog.LevelDebug
+	case "warn":
+		lvl = slog.LevelWarn
+	case "error":
+		lvl = slog.LevelError
+	default:
+		lvl = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{Level: lvl}
+	return slog.New(slog.NewTextHandler(os.Stderr, opts))
+}
+
+func runDevices(jsonOutput bool) {
 	runCmd := func(name string, args ...string) ([]byte, error) {
 		return exec.Command(name, args...).CombinedOutput()
 	}
@@ -157,50 +213,76 @@ func runDevices() {
 	}
 
 	if len(devs) == 0 {
-		fmt.Println("No network devices found.")
+		if jsonOutput {
+			json.NewEncoder(os.Stdout).Encode([]devices.Device{})
+		} else {
+			fmt.Println("No network devices found.")
+		}
 		return
 	}
 
 	devices.EnrichWithModemInfo(devs, runCmd)
 
-	fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "DEVICE", "TYPE", "STATE", "MODEM MODEL", "CONNECTION")
-	fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "------", "----", "-----", "-----------", "----------")
-	for _, d := range devs {
-		model := d.ModemModel
-		if model == "" {
-			model = "-"
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(devs)
+	} else {
+		fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "DEVICE", "TYPE", "STATE", "MODEM MODEL", "CONNECTION")
+		fmt.Printf("%-15s %-10s %-15s %-20s %s\n", "------", "----", "-----", "-----------", "----------")
+		for _, d := range devs {
+			model := d.ModemModel
+			if model == "" {
+				model = "-"
+			}
+			fmt.Printf("%-15s %-10s %-15s %-20s %s\n", d.Interface, d.Type, d.State, model, d.Connection)
 		}
-		fmt.Printf("%-15s %-10s %-15s %-20s %s\n", d.Interface, d.Type, d.State, model, d.Connection)
 	}
 }
 
-func runDrivers() {
+func runDrivers(jsonOutput bool) {
 	drivers := modem.Drivers()
 	if len(drivers) == 0 {
-		fmt.Println("No modem drivers registered.")
+		if jsonOutput {
+			json.NewEncoder(os.Stdout).Encode([]modem.Driver{})
+		} else {
+			fmt.Println("No modem drivers registered.")
+		}
 		return
 	}
 
-	var supported, planned []*modem.Driver
+	type driverInfo struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+
+	var supported, planned []driverInfo
 	for _, d := range drivers {
+		info := driverInfo{Name: d.Name, Description: d.Description, Status: d.Status}
 		switch d.Status {
 		case "supported":
-			supported = append(supported, d)
+			supported = append(supported, info)
 		default:
-			planned = append(planned, d)
+			planned = append(planned, info)
 		}
 	}
 
-	if len(supported) > 0 {
-		fmt.Println("SUPPORTED DRIVERS")
-		for _, d := range supported {
-			fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"supported": supported,
+			"planned":   planned,
+		})
+	} else {
+		if len(supported) > 0 {
+			fmt.Println("SUPPORTED DRIVERS")
+			for _, d := range supported {
+				fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+			}
 		}
-	}
-	if len(planned) > 0 {
-		fmt.Println("\nPLANNED")
-		for _, d := range planned {
-			fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+		if len(planned) > 0 {
+			fmt.Println("\nPLANNED")
+			for _, d := range planned {
+				fmt.Printf("  %-20s %s\n", d.Name, d.Description)
+			}
 		}
 	}
 }
@@ -228,7 +310,7 @@ func runConfig(path string) {
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "aintproxy %s — modem IP rotator\n\n", version)
-	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config <path>] [--help] <command>\n\n")
+	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config <path>] [--json] [--dry-run] [--help] <command>\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
 	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintproxy/config.yaml\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
@@ -241,6 +323,8 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "  version      Print version and exit\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	fmt.Fprintf(os.Stderr, "  --config <path>   path to config file (default %q)\n", config.DefaultConfigPath)
+	fmt.Fprintf(os.Stderr, "  --json            output in JSON format\n")
+	fmt.Fprintf(os.Stderr, "  --dry-run         simulate rotation without toggling data\n")
 	fmt.Fprintf(os.Stderr, "  --help            show this help message\n")
 }
 

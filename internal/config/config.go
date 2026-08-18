@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -43,6 +44,7 @@ type ServerConfig struct {
 	Host      string `yaml:"host"`
 	Port      int    `yaml:"port"`
 	AuthToken string `yaml:"auth_token"`
+	LogLevel  string `yaml:"log_level"`
 }
 
 func defaults() *Config {
@@ -68,8 +70,9 @@ func defaults() *Config {
 			IPCheckInterval: 3,
 		},
 		Server: ServerConfig{
-			Host: "0.0.0.0",
-			Port: 5000,
+			Host:     "0.0.0.0",
+			Port:     5000,
+			LogLevel: "info",
 		},
 	}
 }
@@ -103,6 +106,47 @@ func (c *Config) validate() error {
 
 	if c.Network.RoutingTable == "" {
 		return fmt.Errorf("network.routing_table is required")
+	}
+
+	if c.Modem.IP != "" && net.ParseIP(c.Modem.IP) == nil {
+		return fmt.Errorf("modem.ip: invalid IP address %q", c.Modem.IP)
+	}
+
+	if c.Network.ProxyPort < 1 || c.Network.ProxyPort > 65535 {
+		return fmt.Errorf("network.proxy_port: must be between 1 and 65535, got %d", c.Network.ProxyPort)
+	}
+
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		return fmt.Errorf("server.port: must be between 1 and 65535, got %d", c.Server.Port)
+	}
+
+	if c.Rotation.RebootWait < 0 {
+		return fmt.Errorf("rotation.reboot_wait: must be >= 0, got %d", c.Rotation.RebootWait)
+	}
+
+	if c.Rotation.ToggleWait < 0 {
+		return fmt.Errorf("rotation.data_off_wait: must be >= 0, got %d", c.Rotation.ToggleWait)
+	}
+
+	if c.Rotation.IPCheckAttempts < 1 {
+		return fmt.Errorf("rotation.ip_check_attempts: must be >= 1, got %d", c.Rotation.IPCheckAttempts)
+	}
+
+	if c.Rotation.IPCheckInterval < 0 {
+		return fmt.Errorf("rotation.ip_check_interval: must be >= 0, got %d", c.Rotation.IPCheckInterval)
+	}
+
+	if c.Network.LocalIP != "" && net.ParseIP(c.Network.LocalIP) == nil {
+		return fmt.Errorf("network.local_ip: invalid IP address %q", c.Network.LocalIP)
+	}
+
+	if c.Network.ProxyHost != "" && net.ParseIP(c.Network.ProxyHost) == nil {
+		return fmt.Errorf("network.proxy_host: invalid IP address %q", c.Network.ProxyHost)
+	}
+
+	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
+	if c.Server.LogLevel != "" && !validLogLevels[c.Server.LogLevel] {
+		return fmt.Errorf("server.log_level: must be one of debug, info, warn, error — got %q", c.Server.LogLevel)
 	}
 
 	return nil

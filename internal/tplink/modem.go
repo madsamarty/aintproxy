@@ -17,7 +17,7 @@ func init() {
 	modem.Register(&modem.Driver{
 		Name:        "tplink",
 		Description: "TP-Link LTE gateways (Archer MR200, MR600, TD-W8968, and similar)",
-		Status:      "supported",
+		Status:      "planned",
 		Detect:      detect,
 		DetectModel: detectModel,
 		New:         func(ip, user, pass string) modem.Modem { return New(ip, user, pass) },

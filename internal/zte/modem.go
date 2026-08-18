@@ -19,7 +19,7 @@ func init() {
 	modem.Register(&modem.Driver{
 		Name:        "zte",
 		Description: "ZTE ZXHN gateways (H188A, H1000N, MF289D, and similar)",
-		Status:      "supported",
+		Status:      "planned",
 		Detect:      detect,
 		DetectModel: detectModel,
 		New:         func(ip, user, pass string) modem.Modem { return New(ip, user, pass) },

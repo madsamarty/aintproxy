@@ -1,6 +1,7 @@
 package rotation
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -27,9 +28,8 @@ type Rotator struct {
 	Config    *config.Config
 	Modem     modem.Modem
 	Logger    *slog.Logger
-	// RunCmd is overridable for testing.
-	RunCmd func(name string, args ...string) ([]byte, error)
-	// CurrentIPIs is overridable for testing. If nil, uses the real implementation.
+	DryRun    bool
+	RunCmd    func(name string, args ...string) ([]byte, error)
 	CurrentIPIs func() (string, error)
 }
 
@@ -82,17 +82,42 @@ func (r *Rotator) CurrentIP() (string, error) {
 		},
 	}
 
-	resp, err := client.Get(r.Config.Network.IPCheckURL)
-	if err != nil {
-		return "", nil // offline, not an error for rotation
+	// Try primary URL first, then fallbacks
+	urls := r.ipCheckURLs()
+	for _, checkURL := range urls {
+		resp, err := client.Get(checkURL)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		ip := strings.TrimSpace(string(body))
+		if ip != "" {
+			return ip, nil
+		}
 	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	ip := string(body)
-	if ip == "" {
-		return "", nil
+	return "", nil
+}
+
+// ipCheckURLs returns the primary IP check URL plus common fallbacks.
+func (r *Rotator) ipCheckURLs() []string {
+	primary := r.Config.Network.IPCheckURL
+	fallbacks := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me",
+		"https://icanhazip.com",
+		"https://checkip.amazonaws.com",
 	}
-	return ip, nil
+
+	seen := map[string]bool{primary: true}
+	urls := []string{primary}
+	for _, fb := range fallbacks {
+		if !seen[fb] {
+			urls = append(urls, fb)
+			seen[fb] = true
+		}
+	}
+	return urls
 }
 
 func (r *Rotator) RebootModem() error {
@@ -160,6 +185,12 @@ func (r *Rotator) Rotate() (string, string, error) {
 	oldIP, _ := r.CurrentIP()
 	r.Logger.Info("Current IP", "ip", oldIP)
 
+	if r.DryRun {
+		r.Logger.Info("Dry run — skipping mobile data toggle")
+		newIP, _ := r.CurrentIP()
+		return oldIP, orDefault(newIP, oldIP), nil
+	}
+
 	r.Logger.Info("Toggling mobile data (fast lease drop)")
 	if err := r.ToggleMobileData(); err != nil {
 		return "", "", err
@@ -185,6 +216,12 @@ func (r *Rotator) RotateReboot() (string, string, error) {
 	oldIP, _ := r.CurrentIP()
 	r.Logger.Info("Current IP", "ip", oldIP)
 
+	if r.DryRun {
+		r.Logger.Info("Dry run — skipping modem reboot")
+		newIP, _ := r.CurrentIP()
+		return oldIP, orDefault(newIP, oldIP), nil
+	}
+
 	r.Logger.Info("Rebooting modem (deep clean)")
 	if err := r.RebootModem(); err != nil {
 		return "", "", err
@@ -209,10 +246,25 @@ func (r *Rotator) RotateReboot() (string, string, error) {
 }
 
 type RotateResult struct {
-	Interface string
-	OldIP     string
-	NewIP     string
-	Err       error
+	Interface string `json:"interface"`
+	OldIP     string `json:"old_ip"`
+	NewIP     string `json:"new_ip"`
+	Err       error  `json:"-"`
+}
+
+func (r RotateResult) MarshalJSON() ([]byte, error) {
+	type Alias RotateResult
+	errStr := ""
+	if r.Err != nil {
+		errStr = r.Err.Error()
+	}
+	return json.Marshal(struct {
+		Error string `json:"error,omitempty"`
+		Alias
+	}{
+		Error: errStr,
+		Alias: (Alias)(r),
+	})
 }
 
 // HardRotate performs a full hardware modem reboot on the configured interface.
@@ -227,11 +279,11 @@ func (r *Rotator) HardRotate() ([]RotateResult, error) {
 }
 
 type InfoResult struct {
-	PublicIP    string
-	Interface   string
-	ModemIP     string
-	ModemState  string
-	InterfaceOK bool
+	PublicIP    string `json:"public_ip"`
+	Interface   string `json:"interface"`
+	ModemIP     string `json:"modem_ip"`
+	ModemState  string `json:"modem_state"`
+	InterfaceOK bool   `json:"interface_ok"`
 }
 
 // Info returns current rotation status for the configured interface.
@@ -257,4 +309,11 @@ func (r *Rotator) Info() (*InfoResult, error) {
 	}
 
 	return info, nil
+}
+
+func orDefault(val, def string) string {
+	if val == "" {
+		return def
+	}
+	return val
 }

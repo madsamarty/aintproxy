@@ -25,3 +25,4 @@ server:
   host: "0.0.0.0"             # HTTP service bind address
   port: 5000                  # HTTP service port
   auth_token: ""              # If set, /rotate requires X-Auth-Token header
+  log_level: "info"           # debug, info, warn, error
