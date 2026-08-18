@@ -137,31 +137,60 @@ aintproxy --json drivers                         # JSON output for drivers
 
 ### HTTP API
 
+Start the service:
+
 ```bash
 aintproxy serve &
+```
 
-# Health check (includes uptime, current IP, driver info)
+#### Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/health` | No | Health check with uptime, current IP, and driver info |
+| POST | `/rotate` | Yes | Toggle mobile data (fast lease drop) |
+| POST | `/hard-rotate` | Yes | Full modem reboot to force new IP |
+| GET | `/info` | Yes | Current IP, interface state, modem status |
+| GET | `/history` | Yes | Rotation history (last 100 attempts) |
+| GET | `/metrics` | Yes | Prometheus-format metrics |
+
+#### Examples
+
+```bash
+# Health check (no auth required)
 curl http://127.0.0.1:5000/health
+# => {"status":"ok","uptime":"5m12s","current_ip":"100.64.1.1","driver":"huawei-hilink",...}
 
-# Trigger a rotation (rate-limited to once per 30s)
+# Trigger a rotation
 curl -X POST http://127.0.0.1:5000/rotate
 # => {"old_ip":"100.64.1.1","new_ip":"100.64.9.8","rotated":true}
 
 # Trigger a hard rotation (full modem reboot)
 curl -X POST http://127.0.0.1:5000/hard-rotate
 
-# Get current status (requires auth if configured)
+# Get current status
 curl http://127.0.0.1:5000/info
+# => {"public_ip":"100.64.9.8","interface":"vodafone0","modem_state":"connected",...}
 
 # Get rotation history
 curl http://127.0.0.1:5000/history
 
 # Prometheus metrics
 curl http://127.0.0.1:5000/metrics
+# => # HELP aintproxy_rotations_total Total rotation attempts
+# => aintproxy_rotations_total 42
 
 # With auth token
 curl -X POST -H "X-Auth-Token: your-token" http://127.0.0.1:5000/rotate
 ```
+
+#### Rate Limiting
+
+Rotations are rate-limited to once per 30 seconds. Exceeding this returns `429 Too Many Requests` with a `retry_after` field.
+
+#### Authentication
+
+All endpoints except `/health` require the `X-Auth-Token` header when `auth_token` is configured in `config.yaml`.
 
 ## Systemd service
 
