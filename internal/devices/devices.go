@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/mohamed-sameh/aintproxy/internal/modem"
+	"github.com/mohamed-sameh/aintscrape/internal/modem"
 )
 
 type Device struct {

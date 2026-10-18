@@ -1,20 +1,20 @@
-.\" AintProxy man page
-.TH AINTPROXY 1 "August 2026" "aintproxy 0.1.0" "User Commands"
+.\" AintScrape man page
+.TH AINTSCRAPE 1 "August 2026" "aintscrape 0.1.0" "User Commands"
 .SH NAME
-aintproxy \- modem IP rotator
+aintscrape \- modem IP rotator
 .SH SYNOPSIS
-.B aintproxy
+.B aintscrape
 [\fB\-\-config\fR \fIPATH\fR]
 .I command
 .SH DESCRIPTION
-.B AintProxy
+.B AintScrape
 forces a new public IP address by rotating the IP on a 4G/5G modem
 via its management API. It handles Linux routing and exposes rotation as a
 CLI tool or HTTP endpoint.
 .PP
 Built for CGNAT environments where the ISP hands out fresh IPs on modem
 reconnect. Currently supports Huawei HiLink gateways; run
-.B aintproxy drivers
+.B aintscrape drivers
 to see all supported modems.
 .SH COMMANDS
 .TP
@@ -37,10 +37,10 @@ Print version and exit.
 .SH OPTIONS
 .TP
 .BI \-\-config " PATH"
-Path to configuration file (default: /etc/aintproxy/config.yaml).
+Path to configuration file (default: /etc/aintscrape/config.yaml).
 .SH CONFIGURATION
 Configuration is read from a YAML file. See
-.B /etc/aintproxy/config.yaml
+.B /etc/aintscrape/config.yaml
 for the default configuration and
 .B config.example.yaml
 for all available options.
@@ -51,7 +51,7 @@ The configuration file search order is:
 .BI \-\-config " PATH"
 command-line argument
 .IP 2. 4
-.I /etc/aintproxy/config.yaml
+.I /etc/aintscrape/config.yaml
 .IP 3. 4
 .I ./.env
 (legacy fallback)
@@ -76,26 +76,26 @@ is set in the configuration, the
 header is required for the /rotate endpoint.
 .SH FILES
 .TP
-.I /etc/aintproxy/config.yaml
+.I /etc/aintscrape/config.yaml
 Configuration file.
 .TP
-.I /lib/systemd/system/aintproxy.service
+.I /lib/systemd/system/aintscrape.service
 Systemd service unit.
 .SH EXAMPLES
 .PP
 Rotate the IP once:
 .RS 4
-.B aintproxy rotate
+.B aintscrape rotate
 .RE
 .PP
 Re-enable mobile data after a failed rotation:
 .RS 4
-.B aintproxy fix
+.B aintscrape fix
 .RE
 .PP
 Start the HTTP service:
 .RS 4
-.B aintproxy serve
+.B aintscrape serve
 .RE
 .PP
 Trigger rotation via HTTP:
@@ -105,7 +105,7 @@ Trigger rotation via HTTP:
 .PP
 Use a custom config:
 .RS 4
-.B aintproxy --config /path/to/config.yaml rotate
+.B aintscrape --config /path/to/config.yaml rotate
 .RE
 .SH EXIT STATUS
 .TP

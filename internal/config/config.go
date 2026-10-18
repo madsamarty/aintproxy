@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const DefaultConfigPath = "/etc/aintproxy/config.yaml"
+const DefaultConfigPath = "/etc/aintscrape/config.yaml"
 
 type Config struct {
 	Modem    ModemConfig    `yaml:"modem"`

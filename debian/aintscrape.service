@@ -1,17 +1,17 @@
 [Unit]
-Description=AintProxy — modem IP rotator
+Description=AintScrape — modem IP rotator
 After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/aintproxy serve
-EnvironmentFile=-/etc/aintproxy/config.yaml
+ExecStart=/usr/bin/aintscrape serve
+EnvironmentFile=-/etc/aintscrape/config.yaml
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/etc/aintproxy
+ReadWritePaths=/etc/aintscrape
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
 

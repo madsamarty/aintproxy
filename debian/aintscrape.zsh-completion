@@ -1,6 +1,6 @@
-#compdef aintproxy
+#compdef aintscrape
 
-_aintproxy() {
+_aintscrape() {
     local -a commands
     commands=(
         'rotate:Run a single IP rotation'
@@ -31,4 +31,4 @@ _aintproxy() {
     esac
 }
 
-_aintproxy "$@"
+_aintscrape "$@"

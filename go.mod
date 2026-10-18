@@ -1,4 +1,4 @@
-module github.com/mohamed-sameh/aintproxy
+module github.com/mohamed-sameh/aintscrape
 
 go 1.23.2
 

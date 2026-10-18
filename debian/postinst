@@ -4,18 +4,18 @@ set -e
 case "$1" in
   configure)
     # Create config directory if it doesn't exist
-    if [ ! -d /etc/aintproxy ]; then
-      mkdir -p /etc/aintproxy
+    if [ ! -d /etc/aintscrape ]; then
+      mkdir -p /etc/aintscrape
     fi
 
     # Install default config only if not present
-    if [ ! -f /etc/aintproxy/config.yaml ]; then
-      cp /etc/aintproxy/config.yaml.dpkg-new /etc/aintproxy/config.yaml 2>/dev/null || true
+    if [ ! -f /etc/aintscrape/config.yaml ]; then
+      cp /etc/aintscrape/config.yaml.dpkg-new /etc/aintscrape/config.yaml 2>/dev/null || true
     fi
 
     # Set proper permissions on config (contains password)
-    chmod 600 /etc/aintproxy/config.yaml 2>/dev/null || true
-    chown root:root /etc/aintproxy/config.yaml 2>/dev/null || true
+    chmod 600 /etc/aintscrape/config.yaml 2>/dev/null || true
+    chown root:root /etc/aintscrape/config.yaml 2>/dev/null || true
 
     # Reload systemd if available
     if command -v systemctl >/dev/null 2>&1; then

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/rotation"
+	"github.com/mohamed-sameh/aintscrape/internal/config"
+	"github.com/mohamed-sameh/aintscrape/internal/rotation"
 )
 
 func testLogger() *slog.Logger {
@@ -367,10 +367,10 @@ func TestMetricsEndpoint(t *testing.T) {
 		t.Errorf("status = %d, want 200", resp.StatusCode)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !bytes.Contains(body, []byte("aintproxy_rotations_total")) {
-		t.Error("expected aintproxy_rotations_total in metrics")
+	if !bytes.Contains(body, []byte("aintscrape_rotations_total")) {
+		t.Error("expected aintscrape_rotations_total in metrics")
 	}
-	if !bytes.Contains(body, []byte("aintproxy_uptime_seconds")) {
-		t.Error("expected aintproxy_uptime_seconds in metrics")
+	if !bytes.Contains(body, []byte("aintscrape_uptime_seconds")) {
+		t.Error("expected aintscrape_uptime_seconds in metrics")
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/mohamed-sameh/aintproxy/internal/modem"
+	"github.com/mohamed-sameh/aintscrape/internal/modem"
 )
 
 var titleRe = regexp.MustCompile(`(?i)<title>(.*?)</title>`)

@@ -1,5 +1,5 @@
-# AintProxy configuration
-# Copy to /etc/aintproxy/config.yaml and edit.
+# AintScrape configuration
+# Copy to /etc/aintscrape/config.yaml and edit.
 
 modem:
   ip: "192.168.1.1"           # Modem admin page IP (auto-detected)

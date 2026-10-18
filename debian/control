@@ -1,17 +1,17 @@
-Source: aintproxy
+Source: aintscrape
 Section: net
 Priority: optional
 Maintainer: Mohamed Sameh <mohamed.sameh@example.com>
 Build-Depends: dpkg-dev
 Standards-Version: 4.6.2
-Homepage: https://github.com/mohamed-sameh/aintproxy
+Homepage: https://github.com/mohamed-sameh/aintscrape
 
-Package: aintproxy
+Package: aintscrape
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sudo
 Description: Modem IP rotator
- AintProxy forces a new public IP address by rotating the IP on a
+ AintScrape forces a new public IP address by rotating the IP on a
  4G/5G modem via its management API. It handles Linux routing
  (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
  .

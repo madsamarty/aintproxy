@@ -2,32 +2,32 @@
 set -ex
 
 SRCDIR=$(pwd)
-PKGDIR=${SRCDIR}/debian/tmp/aintproxy
+PKGDIR=${SRCDIR}/debian/tmp/aintscrape
 
 case "$1" in
   clean)
-    rm -f ${SRCDIR}/debian/aintproxy-bin
+    rm -f ${SRCDIR}/debian/aintscrape-bin
     rm -rf ${SRCDIR}/debian/tmp
     ;;
 
   build)
     mkdir -p ${SRCDIR}/.go
-    GOPATH=${SRCDIR}/.go go build -o ${SRCDIR}/debian/aintproxy-bin .
+    GOPATH=${SRCDIR}/.go go build -o ${SRCDIR}/debian/aintscrape-bin .
     ;;
 
   install)
     rm -rf ${PKGDIR}
     mkdir -p ${PKGDIR}/usr/bin
-    mkdir -p ${PKGDIR}/etc/aintproxy
+    mkdir -p ${PKGDIR}/etc/aintscrape
     mkdir -p ${PKGDIR}/lib/systemd/system
     mkdir -p ${PKGDIR}/DEBIAN
 
-    install -m 755 ${SRCDIR}/debian/aintproxy-bin ${PKGDIR}/usr/bin/aintproxy
-    install -m 644 ${SRCDIR}/config.example.yaml ${PKGDIR}/etc/aintproxy/config.yaml
-    install -m 644 ${SRCDIR}/debian/aintproxy.service ${PKGDIR}/lib/systemd/system/aintproxy.service
+    install -m 755 ${SRCDIR}/debian/aintscrape-bin ${PKGDIR}/usr/bin/aintscrape
+    install -m 644 ${SRCDIR}/config.example.yaml ${PKGDIR}/etc/aintscrape/config.yaml
+    install -m 644 ${SRCDIR}/debian/aintscrape.service ${PKGDIR}/lib/systemd/system/aintscrape.service
 
     cat > ${PKGDIR}/DEBIAN/control <<EOF
-Package: aintproxy
+Package: aintscrape
 Version: 0.1.0
 Section: net
 Priority: optional
@@ -35,7 +35,7 @@ Architecture: amd64
 Maintainer: Mohamed Sameh <mohamed.sameh@example.com>
 Recommends: sudo
 Description: Modem IP rotator
- AintProxy forces a new public IP address by rebooting or toggling a
+ AintScrape forces a new public IP address by rebooting or toggling a
  4G/5G modem via its management API. It handles Linux routing
  (ip, sysctl) and exposes rotation as a CLI tool or HTTP endpoint.
  .
@@ -47,13 +47,13 @@ EOF
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ]; then
-    if ! id -u aintproxy >/dev/null 2>&1; then
-        useradd --system --no-create-home --shell /usr/sbin/nologin aintproxy || true
+    if ! id -u aintscrape >/dev/null 2>&1; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin aintscrape || true
     fi
-    chown root:aintproxy /etc/aintproxy/config.yaml || true
-    chmod 640 /etc/aintproxy/config.yaml || true
+    chown root:aintscrape /etc/aintscrape/config.yaml || true
+    chmod 640 /etc/aintscrape/config.yaml || true
     systemctl daemon-reload || true
-    systemctl enable aintproxy.service || true
+    systemctl enable aintscrape.service || true
 fi
 SCRIPT
     chmod 0755 ${PKGDIR}/DEBIAN/postinst
@@ -62,10 +62,10 @@ SCRIPT
 #!/bin/sh
 set -e
 if [ "$1" = "remove" ]; then
-    systemctl stop aintproxy.service 2>/dev/null || true
-    systemctl disable aintproxy.service 2>/dev/null || true
+    systemctl stop aintscrape.service 2>/dev/null || true
+    systemctl disable aintscrape.service 2>/dev/null || true
     systemctl daemon-reload || true
-    userdel aintproxy 2>/dev/null || true
+    userdel aintscrape 2>/dev/null || true
 fi
 SCRIPT
     chmod 0755 ${PKGDIR}/DEBIAN/postrm

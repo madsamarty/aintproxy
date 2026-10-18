@@ -1,4 +1,4 @@
-# AintProxy
+# AintScrape
 
 Flip your public IP address by rotating the IP on a 4G/5G modem.
 
@@ -9,12 +9,12 @@ new IP. This project automates that whole dance and exposes it as a one-shot CLI
 command or a tiny HTTP endpoint.
 
 Currently supported: Huawei HiLink gateways (B525, B535, E5172 and similar).
-Run `aintproxy drivers` to see all supported modems.
+Run `aintscrape drivers` to see all supported modems.
 
 ## How it works
 
 ```
-Scraper / app ──POST /rotate──▶ aintproxy (HTTP service :5000)
+Scraper / app ──POST /rotate──▶ aintscrape (HTTP service :5000)
                                         │
                                         ▼
                               ip / sysctl               (Linux routing)
@@ -39,7 +39,7 @@ A rotation runs these steps:
 
 - Linux with **iproute2** (`ip`, `sysctl`).
 - A supported 4G/5G modem (admin page reachable over HTTP). Run
-  `aintproxy drivers` to see supported models.
+  `aintscrape drivers` to see supported models.
 - Root (or passwordless `sudo`) for the networking commands.
 - A local HTTP proxy (squid, tinyproxy, ...) that routes traffic out through the
   modem. The rotation verifies the new IP through this proxy.
@@ -50,12 +50,12 @@ A rotation runs these steps:
 ### From source
 
 ```bash
-git clone https://github.com/mohamed-sameh/aintproxy.git
-cd aintproxy
+git clone https://github.com/mohamed-sameh/aintscrape.git
+cd aintscrape
 
-go build -o aintproxy .
-sudo install -D -m 755 aintproxy /usr/bin/aintproxy
-sudo aintproxy config
+go build -o aintscrape .
+sudo install -D -m 755 aintscrape /usr/bin/aintscrape
+sudo aintscrape config
 ```
 
 ### Debian package (Ubuntu/Debian)
@@ -68,7 +68,7 @@ sudo apt install debhelper golang-any
 dpkg-buildpackage -b -uc
 
 # Install
-sudo dpkg -i ../aintproxy_0.2.0-1_*.deb
+sudo dpkg -i ../aintscrape_0.2.0-1_*.deb
 ```
 
 ## Configuration
@@ -76,10 +76,10 @@ sudo dpkg -i ../aintproxy_0.2.0-1_*.deb
 Install the default config:
 
 ```bash
-sudo aintproxy config
+sudo aintscrape config
 ```
 
-Then edit `/etc/aintproxy/config.yaml`:
+Then edit `/etc/aintscrape/config.yaml`:
 
 ```yaml
 modem:
@@ -116,23 +116,23 @@ server:
 ### CLI
 
 ```bash
-aintproxy config                   # install default config
-aintproxy rotate                   # toggle mobile data, prints old + new IP
-aintproxy hard-rotate              # full hardware modem reboot
-aintproxy fix                      # force re-enable mobile data (safe if already working)
-aintproxy serve                    # start the HTTP service (foreground)
-aintproxy info                     # show current IP, interface, modem status
-aintproxy devices                  # list all network devices
-aintproxy drivers                  # list supported modem drivers
-aintproxy help                     # show help
-aintproxy version                  # print version
+aintscrape config                   # install default config
+aintscrape rotate                   # toggle mobile data, prints old + new IP
+aintscrape hard-rotate              # full hardware modem reboot
+aintscrape fix                      # force re-enable mobile data (safe if already working)
+aintscrape serve                    # start the HTTP service (foreground)
+aintscrape info                     # show current IP, interface, modem status
+aintscrape devices                  # list all network devices
+aintscrape drivers                  # list supported modem drivers
+aintscrape help                     # show help
+aintscrape version                  # print version
 
-aintproxy --config /path/to/config.yaml rotate   # custom config
-aintproxy --json rotate                          # JSON output
-aintproxy --dry-run rotate                       # simulate without toggling
-aintproxy --json info                            # JSON output for info
-aintproxy --json devices                         # JSON output for devices
-aintproxy --json drivers                         # JSON output for drivers
+aintscrape --config /path/to/config.yaml rotate   # custom config
+aintscrape --json rotate                          # JSON output
+aintscrape --dry-run rotate                       # simulate without toggling
+aintscrape --json info                            # JSON output for info
+aintscrape --json devices                         # JSON output for devices
+aintscrape --json drivers                         # JSON output for drivers
 ```
 
 ### HTTP API
@@ -140,7 +140,7 @@ aintproxy --json drivers                         # JSON output for drivers
 Start the service:
 
 ```bash
-aintproxy serve &
+aintscrape serve &
 ```
 
 #### Endpoints
@@ -177,8 +177,8 @@ curl http://127.0.0.1:5000/history
 
 # Prometheus metrics
 curl http://127.0.0.1:5000/metrics
-# => # HELP aintproxy_rotations_total Total rotation attempts
-# => aintproxy_rotations_total 42
+# => # HELP aintscrape_rotations_total Total rotation attempts
+# => aintscrape_rotations_total 42
 
 # With auth token
 curl -X POST -H "X-Auth-Token: your-token" http://127.0.0.1:5000/rotate
@@ -195,8 +195,8 @@ All endpoints except `/health` require the `X-Auth-Token` header when `auth_toke
 ## Systemd service
 
 ```bash
-sudo systemctl enable --now aintproxy
-journalctl -u aintproxy -f
+sudo systemctl enable --now aintscrape
+journalctl -u aintscrape -f
 ```
 
 The service runs with hardened defaults:
@@ -212,22 +212,22 @@ Manual install:
 
 ```bash
 # Bash
-sudo install -D -m 644 debian/aintproxy.bash-completion \
-    /usr/share/bash-completion/completions/aintproxy
+sudo install -D -m 644 debian/aintscrape.bash-completion \
+    /usr/share/bash-completion/completions/aintscrape
 
 # Zsh
-sudo install -D -m 644 debian/aintproxy.zsh-completion \
-    /usr/share/zsh/vendor-completions/_aintproxy
+sudo install -D -m 644 debian/aintscrape.zsh-completion \
+    /usr/share/zsh/vendor-completions/_aintscrape
 
 # Fish
-sudo install -D -m 644 debian/aintproxy.fish-completion \
-    /usr/share/fish/vendor_completions.d/aintproxy.fish
+sudo install -D -m 644 debian/aintscrape.fish-completion \
+    /usr/share/fish/vendor_completions.d/aintscrape.fish
 ```
 
 ## Development
 
 ```bash
-go build -o aintproxy .
+go build -o aintscrape .
 go test ./...
 go vet ./...
 ```
@@ -244,7 +244,7 @@ go vet ./...
   Wait longer between flips or try `hard-rotate` for a full modem reboot.
 - **Rate limited** -- the server enforces a 30-second cooldown between rotations.
   Wait before retrying.
-- **Modem stuck after Ctrl+C** -- run `aintproxy fix` to re-enable mobile data.
+- **Modem stuck after Ctrl+C** -- run `aintscrape fix` to re-enable mobile data.
 - **Other interfaces lost internet** -- increase `route_metric` (default 9000)
   so the modem route has lower priority than your main interface.
 

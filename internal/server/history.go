@@ -3,7 +3,7 @@ package server
 import (
 	"sync"
 
-	"github.com/mohamed-sameh/aintproxy/internal/rotation"
+	"github.com/mohamed-sameh/aintscrape/internal/rotation"
 )
 
 type History struct {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/modem"
+	"github.com/mohamed-sameh/aintscrape/internal/config"
+	"github.com/mohamed-sameh/aintscrape/internal/modem"
 )
 
 func testConfig(overrides map[string]any) *config.Config {

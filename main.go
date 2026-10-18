@@ -15,15 +15,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/devices"
-	"github.com/mohamed-sameh/aintproxy/internal/modem"
-	"github.com/mohamed-sameh/aintproxy/internal/rotation"
-	"github.com/mohamed-sameh/aintproxy/internal/server"
+	"github.com/mohamed-sameh/aintscrape/internal/config"
+	"github.com/mohamed-sameh/aintscrape/internal/devices"
+	"github.com/mohamed-sameh/aintscrape/internal/modem"
+	"github.com/mohamed-sameh/aintscrape/internal/rotation"
+	"github.com/mohamed-sameh/aintscrape/internal/server"
 
-	_ "github.com/mohamed-sameh/aintproxy/internal/huawei"
-	_ "github.com/mohamed-sameh/aintproxy/internal/tplink"
-	_ "github.com/mohamed-sameh/aintproxy/internal/zte"
+	_ "github.com/mohamed-sameh/aintscrape/internal/huawei"
+	_ "github.com/mohamed-sameh/aintscrape/internal/tplink"
+	_ "github.com/mohamed-sameh/aintscrape/internal/zte"
 )
 
 //go:embed config.example.yaml
@@ -47,7 +47,7 @@ func main() {
 
 	switch cmd {
 	case "version":
-		fmt.Printf("aintproxy %s\n", version)
+		fmt.Printf("aintscrape %s\n", version)
 		os.Exit(0)
 
 	case "help", "--help", "-h":
@@ -314,14 +314,14 @@ func runConfig(path string) {
 	}
 
 	fmt.Printf("Config written to %s\n", path)
-	fmt.Println("Edit it with your modem password, then run: aintproxy rotate")
+	fmt.Println("Edit it with your modem password, then run: aintscrape rotate")
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "aintproxy %s — modem IP rotator\n\n", version)
-	fmt.Fprintf(os.Stderr, "Usage: aintproxy [--config <path>] [--json] [--dry-run] [--help] <command>\n\n")
+	fmt.Fprintf(os.Stderr, "aintscrape %s — modem IP rotator\n\n", version)
+	fmt.Fprintf(os.Stderr, "Usage: aintscrape [--config <path>] [--json] [--dry-run] [--help] <command>\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
-	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintproxy/config.yaml\n")
+	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintscrape/config.yaml\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
 	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all interfaces\n")
 	fmt.Fprintf(os.Stderr, "  fix          Force re-enable mobile data and reconnect interface\n")

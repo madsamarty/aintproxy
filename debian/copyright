@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: aintproxy
+Upstream-Name: aintscrape
 Upstream-Contact: Mohamed Sameh <mohamed.sameh@example.com>
-Source: https://github.com/mohamed-sameh/aintproxy
+Source: https://github.com/mohamed-sameh/aintscrape
 
 Files: *
 Copyright: 2026 Mohamed Sameh

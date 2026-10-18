@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/modem"
+	"github.com/mohamed-sameh/aintscrape/internal/config"
+	"github.com/mohamed-sameh/aintscrape/internal/modem"
 )
 
 type RotationError struct {
@@ -26,7 +26,7 @@ func (e *RotationError) Error() string {
 	return e.Msg
 }
 
-const lastRotationFile = "/var/lib/aintproxy/.last_rotation"
+const lastRotationFile = "/var/lib/aintscrape/.last_rotation"
 
 type Rotator struct {
 	Config      *config.Config
@@ -252,7 +252,7 @@ func (r *Rotator) checkCooldown() error {
 }
 
 func (r *Rotator) recordRotation() {
-	os.MkdirAll("/var/lib/aintproxy", 0755)
+	os.MkdirAll("/var/lib/aintscrape", 0755)
 	ts, _ := time.Now().Truncate(time.Microsecond).MarshalText()
 	os.WriteFile(lastRotationFile, ts, 0644)
 }

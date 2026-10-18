@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohamed-sameh/aintproxy/internal/config"
-	"github.com/mohamed-sameh/aintproxy/internal/rotation"
+	"github.com/mohamed-sameh/aintscrape/internal/config"
+	"github.com/mohamed-sameh/aintscrape/internal/rotation"
 )
 
 // Rotator is the interface the server needs from a rotation engine.
@@ -221,18 +221,18 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	fmt.Fprintf(w, "# HELP aintproxy_rotations_total Total rotation attempts\n")
-	fmt.Fprintf(w, "# TYPE aintproxy_rotations_total counter\n")
-	fmt.Fprintf(w, "aintproxy_rotations_total %d\n", totalRotations)
-	fmt.Fprintf(w, "# HELP aintproxy_rotations_successful Successful rotations\n")
-	fmt.Fprintf(w, "# TYPE aintproxy_rotations_successful counter\n")
-	fmt.Fprintf(w, "aintproxy_rotations_successful %d\n", successful)
-	fmt.Fprintf(w, "# HELP aintproxy_rotations_failed Failed rotations\n")
-	fmt.Fprintf(w, "# TYPE aintproxy_rotations_failed counter\n")
-	fmt.Fprintf(w, "aintproxy_rotations_failed %d\n", failed)
-	fmt.Fprintf(w, "# HELP aintproxy_uptime_seconds Server uptime in seconds\n")
-	fmt.Fprintf(w, "# TYPE aintproxy_uptime_seconds gauge\n")
-	fmt.Fprintf(w, "aintproxy_uptime_seconds %.2f\n", time.Since(s.startedAt).Seconds())
+	fmt.Fprintf(w, "# HELP aintscrape_rotations_total Total rotation attempts\n")
+	fmt.Fprintf(w, "# TYPE aintscrape_rotations_total counter\n")
+	fmt.Fprintf(w, "aintscrape_rotations_total %d\n", totalRotations)
+	fmt.Fprintf(w, "# HELP aintscrape_rotations_successful Successful rotations\n")
+	fmt.Fprintf(w, "# TYPE aintscrape_rotations_successful counter\n")
+	fmt.Fprintf(w, "aintscrape_rotations_successful %d\n", successful)
+	fmt.Fprintf(w, "# HELP aintscrape_rotations_failed Failed rotations\n")
+	fmt.Fprintf(w, "# TYPE aintscrape_rotations_failed counter\n")
+	fmt.Fprintf(w, "aintscrape_rotations_failed %d\n", failed)
+	fmt.Fprintf(w, "# HELP aintscrape_uptime_seconds Server uptime in seconds\n")
+	fmt.Fprintf(w, "# TYPE aintscrape_uptime_seconds gauge\n")
+	fmt.Fprintf(w, "aintscrape_uptime_seconds %.2f\n", time.Since(s.startedAt).Seconds())
 }
 
 func (s *Server) authorized(r *http.Request) bool {
