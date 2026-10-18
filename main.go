@@ -19,6 +19,7 @@ import (
 	"github.com/mohamed-sameh/aintscrape/internal/devices"
 	"github.com/mohamed-sameh/aintscrape/internal/modem"
 	"github.com/mohamed-sameh/aintscrape/internal/rotation"
+	"github.com/mohamed-sameh/aintscrape/internal/scrape"
 	"github.com/mohamed-sameh/aintscrape/internal/server"
 
 	_ "github.com/mohamed-sameh/aintscrape/internal/huawei"
@@ -64,6 +65,10 @@ func main() {
 
 	case "config":
 		runConfig(*configPath)
+		return
+
+	case "scrape":
+		runScrape(flag.Args()[1:], *configPath, *jsonOutput)
 		return
 	}
 
@@ -318,10 +323,11 @@ func runConfig(path string) {
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "aintscrape %s — modem IP rotator\n\n", version)
+	fmt.Fprintf(os.Stderr, "aintscrape %s — web scraper and modem IP rotator\n\n", version)
 	fmt.Fprintf(os.Stderr, "Usage: aintscrape [--config <path>] [--json] [--dry-run] [--help] <command>\n\n")
 	fmt.Fprintf(os.Stderr, "Commands:\n")
 	fmt.Fprintf(os.Stderr, "  config       Install default config to /etc/aintscrape/config.yaml\n")
+	fmt.Fprintf(os.Stderr, "  scrape       Fetch a URL and extract data (see: scrape -h)\n")
 	fmt.Fprintf(os.Stderr, "  rotate       Fast software-level IP lease drop (toggle mobile data)\n")
 	fmt.Fprintf(os.Stderr, "  hard-rotate  Full hardware modem reboot/reset on all interfaces\n")
 	fmt.Fprintf(os.Stderr, "  fix          Force re-enable mobile data and reconnect interface\n")
@@ -392,5 +398,88 @@ func runFix(cfg *config.Config, logger *slog.Logger, jsonOutput bool) {
 		fmt.Println("Interface is up with IP.")
 	} else {
 		fmt.Println("Interface connected but no IP yet — may need a moment.")
+	}
+}
+
+func runScrape(args []string, configPath string, jsonOutput bool) {
+	fs := flag.NewFlagSet("scrape", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: aintscrape [--json] scrape [flags] <url>\n\nFlags:\n")
+		fs.PrintDefaults()
+	}
+	useProxy := fs.Bool("proxy", false, "route the request through the local aintscrape proxy (from config)")
+	proxyURL := fs.String("proxy-url", "", "route through this proxy URL instead of the configured one")
+	selector := fs.String("select", "", "CSS selector; print each match (default: print raw body)")
+	attr := fs.String("attr", "", "with --select: print this attribute instead of text")
+	rawHTML := fs.Bool("html", false, "with --select: print inner HTML instead of text")
+	ua := fs.String("user-agent", "", "User-Agent header")
+	timeout := fs.Duration("timeout", 30*time.Second, "request timeout")
+	retries := fs.Int("retries", 2, "retries on network error, 429 or 5xx")
+
+	// Allow the URL to appear before or after flags.
+	var target string
+	rest := args
+	for len(rest) > 0 {
+		if err := fs.Parse(rest); err != nil {
+			os.Exit(2)
+		}
+		rest = fs.Args()
+		if len(rest) > 0 {
+			if target != "" {
+				fmt.Fprintln(os.Stderr, "scrape: only one URL is supported")
+				os.Exit(2)
+			}
+			target, rest = rest[0], rest[1:]
+		}
+	}
+	if target == "" {
+		fs.Usage()
+		os.Exit(2)
+	}
+
+	opts := scrape.Options{UserAgent: *ua, Timeout: *timeout, Retries: *retries, ProxyURL: *proxyURL}
+	if *useProxy && opts.ProxyURL == "" {
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
+			os.Exit(2)
+		}
+		opts.ProxyURL = fmt.Sprintf("http://%s:%d", cfg.Network.ProxyHost, cfg.Network.ProxyPort)
+	}
+
+	res, err := scrape.Fetch(target, opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fetch error: %v\n", err)
+		os.Exit(1)
+	}
+
+	var items []string
+	if *selector != "" {
+		items, err = scrape.Select(res.Body, scrape.Extract{Selector: *selector, Attr: *attr, HTML: *rawHTML})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if jsonOutput {
+		out := map[string]any{"url": res.URL, "status": res.Status, "proxy": opts.ProxyURL}
+		if *selector != "" {
+			out["matches"] = items
+		} else {
+			out["body"] = string(res.Body)
+		}
+		json.NewEncoder(os.Stdout).Encode(out)
+	} else if *selector != "" {
+		for _, it := range items {
+			fmt.Println(it)
+		}
+	} else {
+		os.Stdout.Write(res.Body)
+	}
+
+	if res.Status >= 400 {
+		fmt.Fprintf(os.Stderr, "HTTP %d\n", res.Status)
+		os.Exit(1)
 	}
 }

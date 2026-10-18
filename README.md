@@ -135,6 +135,23 @@ aintscrape --json devices                         # JSON output for devices
 aintscrape --json drivers                         # JSON output for drivers
 ```
 
+### Scraping
+
+`scrape` fetches a page and extracts data with CSS selectors. Add `--proxy` to
+send the request through the local proxy (`network.proxy_host`/`proxy_port`),
+so it exits via the modem's current IP; rotate the IP between runs as needed.
+
+```bash
+aintscrape scrape https://example.com                          # raw body
+aintscrape scrape https://example.com --select title           # text of matches
+aintscrape scrape https://example.com --select a --attr href   # attribute values
+aintscrape scrape --proxy https://api.ipify.org                # via the modem proxy
+aintscrape --json scrape --proxy-url http://host:3128 URL      # explicit proxy, JSON out
+```
+
+Flags: `--proxy`, `--proxy-url`, `--select`, `--attr`, `--html`, `--user-agent`,
+`--timeout`, `--retries`. Static HTML only (no JavaScript rendering).
+
 ### HTTP API
 
 Start the service:
