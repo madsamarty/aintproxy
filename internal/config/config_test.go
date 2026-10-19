@@ -109,15 +109,14 @@ func TestLoadInvalidYAML(t *testing.T) {
 	}
 }
 
-func TestLoadMissingPassword(t *testing.T) {
+func TestLoadEmptyPasswordAllowed(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nopass.yaml")
 	if err := os.WriteFile(path, []byte("modem:\n  password: ''"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Load(path)
-	if err == nil {
-		t.Fatal("expected error for missing password")
+	if _, err := Load(path); err != nil {
+		t.Fatalf("empty password must be allowed (generic devices): %v", err)
 	}
 }
 

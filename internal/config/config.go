@@ -15,6 +15,11 @@ type Config struct {
 	Network  NetworkConfig  `yaml:"network"`
 	Rotation RotationConfig `yaml:"rotation"`
 	Server   ServerConfig   `yaml:"server"`
+	Output   OutputConfig   `yaml:"output"`
+}
+
+type OutputConfig struct {
+	Dir string `yaml:"dir"` // where scrape results are saved (empty = ~/aintscrape-output)
 }
 
 type ModemConfig struct {
@@ -104,10 +109,6 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) validate() error {
-	if c.Modem.Password == "" {
-		return fmt.Errorf("modem.password is required")
-	}
-
 	if c.Network.RoutingTable == "" {
 		return fmt.Errorf("network.routing_table is required")
 	}

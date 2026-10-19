@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,21 +36,52 @@ type Rotator struct {
 	DryRun      bool
 	RunCmd      func(name string, args ...string) ([]byte, error)
 	CurrentIPIs func() (string, error)
+	Driver      string // detected modem driver, or GenericDriver
+}
+
+// GenericDriver is the Driver name used for devices with no modem driver
+// (plain ethernet/Wi-Fi/USB-tether interfaces).
+const GenericDriver = "generic"
+
+// genericDevice lets any network interface act as the rotation target.
+// "Mobile data off/on" becomes a link disconnect/connect, which drops the
+// current DHCP lease; there is no hardware to reboot, so Reboot does the same.
+type genericDevice struct{ r *Rotator }
+
+func (g *genericDevice) SetMobileData(enabled bool) error {
+	verb := "disconnect"
+	if enabled {
+		verb = "connect"
+	}
+	_, err := g.r.RunCmd("nmcli", "device", verb, g.r.Config.Modem.Interface)
+	return err
+}
+
+func (g *genericDevice) Reboot() error {
+	if err := g.SetMobileData(false); err != nil {
+		return err
+	}
+	time.Sleep(2 * time.Second)
+	return g.SetMobileData(true)
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*Rotator, error) {
-	m, driverName, err := modem.Detect(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password)
-	if err != nil {
-		return nil, err
-	}
-	logger.Info("Detected modem", "driver", driverName)
-
 	r := &Rotator{
 		Config: cfg,
-		Modem:  m,
 		Logger: logger,
 	}
 	r.RunCmd = r.defaultRunCmd
+
+	m, driverName, err := modem.Detect(cfg.Modem.IP, cfg.Modem.User, cfg.Modem.Password)
+	if err != nil {
+		logger.Info("No modem driver matched — using generic device mode", "interface", cfg.Modem.Interface)
+		r.Modem = &genericDevice{r: r}
+		r.Driver = GenericDriver
+		return r, nil
+	}
+	logger.Info("Detected modem", "driver", driverName)
+	r.Modem = m
+	r.Driver = driverName
 	return r, nil
 }
 
@@ -100,7 +132,42 @@ func (r *Rotator) CurrentIP() (string, error) {
 			return ip, nil
 		}
 	}
-	return "", nil
+	return r.currentIPViaInterface(urls), nil
+}
+
+// currentIPViaInterface asks the IP-check URLs with the socket bound to the
+// modem interface's own address. It is the fallback when the local proxy is
+// down or its traffic is not routed out of the modem.
+func (r *Rotator) currentIPViaInterface(urls []string) string {
+	ifname := r.Config.Modem.Interface
+	dialer := &net.Dialer{
+		Timeout: 3 * time.Second,
+		Control: func(network, address string, c syscall.RawConn) error {
+			var serr error
+			if err := c.Control(func(fd uintptr) {
+				serr = syscall.SetsockoptString(int(fd), syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, ifname)
+			}); err != nil {
+				return err
+			}
+			return serr
+		},
+	}
+	client := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: &http.Transport{DialContext: dialer.DialContext},
+	}
+	for _, u := range urls {
+		resp, err := client.Get(u)
+		if err != nil {
+			continue
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if ip := strings.TrimSpace(string(body)); net.ParseIP(ip) != nil {
+			return ip
+		}
+	}
+	return ""
 }
 
 // ipCheckURLs returns the primary IP check URL plus common fallbacks.

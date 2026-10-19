@@ -26,6 +26,13 @@ type Options struct {
 	Timeout   time.Duration // defaults to 30s
 	Retries   int           // extra attempts on network error, 429 or 5xx
 	Headers   map[string]string
+
+	// Used by multi-request modes such as meta-pages.
+	Limit    int              // how many results to collect: ads (meta-ads) or advertiser pages (meta-pages); 0 = mode default
+	Delay    time.Duration    // pause between requests (0 = default 2s)
+	Progress func(msg string) // optional plain-text progress reporter
+	OnEvent  func(Event)      // optional structured progress (used for the live UI)
+	Websites bool             // meta-pages: also visit the advertiser's website for contact details
 }
 
 // Result is the outcome of a fetch.
@@ -35,13 +42,8 @@ type Result struct {
 	Body   []byte
 }
 
-// Fetch GETs rawURL and returns the response body.
-func Fetch(rawURL string, o Options) (*Result, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("invalid URL %q (must be http or https)", rawURL)
-	}
-
+// newClient builds an HTTP client honouring the proxy and timeout in o.
+func newClient(o Options, jar http.CookieJar) (*http.Client, error) {
 	transport := &http.Transport{}
 	if o.ProxyURL != "" {
 		p, err := url.Parse(o.ProxyURL)
@@ -54,7 +56,20 @@ func Fetch(rawURL string, o Options) (*Result, error) {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	client := &http.Client{Transport: transport, Timeout: timeout}
+	return &http.Client{Transport: transport, Timeout: timeout, Jar: jar}, nil
+}
+
+// Fetch GETs rawURL and returns the response body.
+func Fetch(rawURL string, o Options) (*Result, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return nil, fmt.Errorf("invalid URL %q (must be http or https)", rawURL)
+	}
+
+	client, err := newClient(o, nil)
+	if err != nil {
+		return nil, err
+	}
 	ua := o.UserAgent
 	if ua == "" {
 		ua = DefaultUserAgent
@@ -149,4 +164,14 @@ func text(n *html.Node) string {
 		sb.WriteByte(' ')
 	}
 	return sb.String()
+}
+
+// Event is a structured progress update from a multi-request mode.
+type Event struct {
+	Stage    string       // "search", "enrich", "done"
+	Done     int          // items finished in this stage
+	Total    int          // target for this stage (0 = unknown)
+	Msg      string       // short status text
+	Page     *PageProfile // set on "enrich" when a page just finished
+	Requests int          // HTTP requests made so far
 }
